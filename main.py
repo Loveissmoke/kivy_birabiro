@@ -259,8 +259,7 @@ ScreenManager:
                     MDTopAppBar:
                         title: app.total_text
                         left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
-                        right_action_items: [["cog", lambda x: app.ask_password()]]
-
+                        right_action_items: [["theme-light-dark", lambda x: app.toggle_theme()],["cog", lambda x: app.ask_password()]]
                     MDBoxLayout:
                         size_hint_y: None
                         height: dp(72)
@@ -853,6 +852,20 @@ BoxLayout:
 
         # Remove the label after 1 second
         Clock.schedule_once(lambda dt: current_screen.remove_widget(error_label), 1)  
+
+         
+    def toggle_theme(self):
+        if self.theme_cls.theme_style == "Dark":
+            self.theme_cls.theme_style = "Light"
+        else:
+            self.theme_cls.theme_style = "Dark"
+
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
