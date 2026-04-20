@@ -155,8 +155,9 @@ def safe_int(v):
         return int(v)
     except:
         return 0
-
-
+# to save theme
+def get_theme_path():
+    return os.path.join(get_base_dir(), "theme.json")
 # =========================
 # SCREENS
 # =========================
@@ -517,6 +518,7 @@ class SalesApp(MDApp):
         return Builder.load_string(KV)
 
     def on_start(self):
+        self.load_theme()
         init_db()
         self.load_sales()
         self.load_admin()
@@ -857,8 +859,46 @@ BoxLayout:
     def toggle_theme(self):
         if self.theme_cls.theme_style == "Dark":
             self.theme_cls.theme_style = "Light"
+            if hasattr(self, "theme_icon"):
+                self.theme_icon = "white-balance-sunny"
         else:
             self.theme_cls.theme_style = "Dark"
+            if hasattr(self, "theme_icon"):
+                self.theme_icon = "weather-night"
+
+        self.save_theme()  # 👈 IMPORTANT
+
+    def save_theme(self):
+        path = get_theme_path()
+        data = {"theme": self.theme_cls.theme_style}
+
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+    def load_theme(self):
+        path = get_theme_path()
+
+        if not os.path.exists(path):
+            return  # default stays
+
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+
+            theme = data.get("theme", "Dark")
+            self.theme_cls.theme_style = theme
+
+            # update icon if you're using dynamic icon
+            if hasattr(self, "theme_icon"):
+                if theme == "Dark":
+                    self.theme_icon = "weather-night"
+                else:
+                    self.theme_icon = "white-balance-sunny"
+
+        except:
+            pass
+
+
 
 
 
