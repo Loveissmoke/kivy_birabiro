@@ -1,5 +1,14 @@
-*
+/*
+
 
 !main.py
+
+!kivy_config/
+!kivy_config/**
+
+kivy_config/__pycache__/
+
+!assets/
+!assets/**
 
 !.gitignore

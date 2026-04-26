@@ -1,0 +1,211 @@
+ScreenManager:
+    SalesScreen:
+    AdminScreen:
+    HistoryScreen:
+
+<SalesScreen>:
+    name: "sales"
+    MDNavigationLayout:
+        ScreenManager:
+            MDScreen:
+                MDBoxLayout:
+                    orientation: "vertical"
+                    MDTopAppBar:
+                        title: app.total_text
+                        left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
+                        right_action_items: [["theme-light-dark", lambda x: app.toggle_theme()], ["cog", lambda x: app.ask_password()]]
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: dp(72)
+                        padding: dp(10)
+                        MDTextField:
+                            id: customer_name
+                            hint_text: "Customer Name"
+                            mode: "rectangle"
+                    ScrollView:
+                        MDBoxLayout:
+                            id: product_list
+                            orientation: "vertical"
+                            adaptive_height: True
+                            padding: dp(10)
+                            spacing: dp(10)
+                MDFloatingActionButtonSpeedDial:
+                    data: app.fab_actions
+                    pos_hint: {"right": 0.95, "y": 0.02}
+
+        MDNavigationDrawer:
+            id: nav_drawer
+            MDBoxLayout:
+                orientation: "vertical"
+                padding: dp(10)
+                spacing: dp(10)
+                MDLabel:
+                    text: "Menu"
+                    font_style: "H6"
+                    size_hint_y: None
+                    height: dp(40)
+                MDList:
+                    OneLineListItem:
+                        text: "History"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.open_history()
+                    OneLineListItem:
+                        text: "Report"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.open_report()
+                    OneLineListItem:
+                        text: "By Date"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.open_by_date()
+                    OneLineListItem:
+                        text: "Sync"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.sync_data()
+                    OneLineListItem:
+                        text: "About"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.show_about()
+
+<AdminScreen>:
+    name: "admin"
+    MDBoxLayout:
+        orientation: "vertical"
+        MDTopAppBar:
+            title: "Admin - Products"
+            left_action_items: [["arrow-left", lambda x: app.switch_sales()]]
+            right_action_items: [["key", lambda x: app.change_password_dialog()]]
+        MDBoxLayout:
+            orientation: "vertical"
+            padding: dp(10)
+            spacing: dp(10)
+            MDTextField:
+                id: name
+                hint_text: "Product Name"
+            MDTextField:
+                id: case_size
+                hint_text: "Case Size"
+                input_filter: "int"
+            MDTextField:
+                id: price
+                hint_text: "Price"
+                input_filter: "float"
+            MDRaisedButton:
+                text: "Add Product"
+                on_press: app.add_new_product(name.text, case_size.text, price.text)
+        ScrollView:
+            MDBoxLayout:
+                id: admin_list
+                orientation: "vertical"
+                adaptive_height: True
+                spacing: dp(10)
+                padding: dp(10)
+
+
+<ProductCard>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: dp(140)
+    padding: dp(10)
+    spacing: dp(8)
+    elevation: 3
+    MDLabel:
+        text: root.name
+    MDBoxLayout:
+        spacing: dp(8)
+        MDTextField:
+            id: case
+            hint_text: "Case"
+            input_filter: "int"
+            on_text: root.on_change()
+        MDTextField:
+            id: dozen
+            hint_text: "Dozen"
+            input_filter: "int"
+            on_text: root.on_change()
+        MDTextField:
+            id: pieces
+            hint_text: "Pieces"
+            input_filter: "int"
+            on_text: root.on_change()
+    MDLabel:
+        id: subtotal
+        text: "Subtotal: 0.00 ETB"
+
+<AdminItem>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(60)
+
+    MDLabel:
+        text: root.name  # Show name and price
+        theme_text_color: "Secondary"
+        size_hint_x: 0.6
+
+    MDLabel:
+        text: f"Case Size: {root.case_size}"  # Show case size
+        theme_text_color: "Primary"
+        size_hint_x: 0.4
+
+    MDIconButton:
+        icon: "pencil"
+        on_press: app.open_edit_dialog(root.pid)
+
+    MDIconButton:
+        icon: "delete"
+        on_press: app.delete_product(root.pid)
+
+
+<HistoryScreen>:
+    name: "history"
+    MDBoxLayout:
+        orientation: "vertical"
+        MDTopAppBar:
+            title: "History"
+            left_action_items: [["arrow-left", lambda x: app.switch_sales()]]
+        ScrollView:
+            MDBoxLayout:
+                id: history_list
+                orientation: "vertical"
+                adaptive_height: True
+                padding: dp(12)
+                spacing: dp(12)
+
+
+<CustomerCard>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: self.minimum_height
+    padding: dp(12)
+    spacing: dp(10)
+    radius: [16]
+    elevation: 4
+    MDBoxLayout:
+        orientation: "vertical"
+        adaptive_height: True
+        spacing: dp(8)
+        MDLabel:
+            text: root.customer_name
+            font_style: "H6"
+            bold: True
+            size_hint_y: None
+            height: self.texture_size[1]
+        MDBoxLayout:
+            id: product_box
+            orientation: "vertical"
+            adaptive_height: True
+            spacing: dp(4)
+        MDSeparator:
+            size_hint_y: None
+            height: dp(1)
+        MDLabel:
+            text: root.total_text
+            halign: "right"
+            theme_text_color: "Primary"
+            bold: True
+            size_hint_y: None
+            height: self.texture_size[1]
