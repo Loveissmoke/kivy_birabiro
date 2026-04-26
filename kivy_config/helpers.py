@@ -40,7 +40,9 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         case_size INTEGER,
-        price REAL
+        retail_price REAL,
+        wholesale_price REAL,
+        subd_price REAL
     )
     """)
 
@@ -89,29 +91,29 @@ def update_password(p):
 def get_products():
     conn = db()
     c = conn.cursor()
-    c.execute("SELECT id,name,case_size,price FROM products")
+    c.execute("SELECT id,name,case_size,retail_price, wholesale_price, subd_price FROM products")
     data = c.fetchall()
     conn.close()
     return data
 
 
-def add_product(name, case_size, price):
+def add_product(name, case_size,  retail_price, wholesale_price, subd_price):
     conn = db()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO products(name,case_size,price) VALUES(?,?,?)",
-        (name, case_size, price)
+        "INSERT INTO products(name,case_size, retail_price, wholesale_price, subd_price) VALUES(?,?,?,?,?)",
+        (name, case_size, retail_price, wholesale_price, subd_price)
     )
     conn.commit()
     conn.close()
 
 
-def update_product(pid, name, case_size, price):
+def update_product(pid, name, case_size, retail_price, wholesale_price, subd_price):
     conn = db()
     c = conn.cursor()
     c.execute(
-        "UPDATE products SET name=?,case_size=?,price=? WHERE id=?",
-        (name, case_size, price, pid)
+        "UPDATE products SET name=?,case_size=?,retail_price=?, wholesale_price=?, subd_price=? WHERE id=?",
+        (name, case_size, retail_price, wholesale_price, subd_price, pid)
     )
     conn.commit()
     conn.close()

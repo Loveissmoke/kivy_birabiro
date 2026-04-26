@@ -20,7 +20,10 @@ def safe_int(v):
 class ProductCard(MDCard):
     name = StringProperty()
     case_size = NumericProperty()
-    price = NumericProperty()
+    retail_price = NumericProperty()
+    wholesale_price = NumericProperty()
+    subd_price = NumericProperty()
+    selected_price = StringProperty()
 
     def __init__(self, update_callback, **kwargs):
         super().__init__(**kwargs)
@@ -40,7 +43,15 @@ class ProductCard(MDCard):
         dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
 
         total = (case * self.case_size) + (dozen * 12) + pieces
-        subtotal = total * self.price
+        
+        if self.selected_price == "retail":
+            subtotal = total * self.retail_price
+        elif self.selected_price == "wholesale":
+            subtotal = total * self.wholesale_price
+        elif self.selected_price == "subd":
+            subtotal = total * self.subd_price
+        else:
+            subtotal = 0
 
         self.ids.subtotal.text = f"Subtotal: {subtotal:.2f} ETB"
 
@@ -55,7 +66,18 @@ class ProductCard(MDCard):
         pieces = safe_int(self.ids.pieces.text)
         dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
 
-        return ((case * self.case_size) + (dozen * 12) + pieces) * self.price
+        # Calculate total number of items
+        total_items = (case * self.case_size) + (dozen * 12) + pieces
+
+        # Now, use the total_items to calculate the subtotal
+        if self.selected_price == "retail":
+            return total_items * self.retail_price
+        elif self.selected_price == "wholesale":
+            return total_items * self.wholesale_price
+        elif self.selected_price == "subd":
+            return total_items * self.subd_price
+        else:
+            return 0
 
     def get_total_pieces(self):
         case = safe_int(self.ids.case.text)

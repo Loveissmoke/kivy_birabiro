@@ -14,6 +14,14 @@ ScreenManager:
                         title: app.total_text
                         left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
                         right_action_items: [["theme-light-dark", lambda x: app.toggle_theme()], ["cog", lambda x: app.ask_password()]]
+                        MDLabel:
+                            text: f"Price Type: {app.selected_price_type.capitalize()}"
+                            theme_text_color: "Secondary"
+                            bold: True
+                            font_style: "Body2"  # Use a smaller font style like "Body2"
+                            font_size: "16sp"  # Make the font size smaller
+                            halign: "center"  # Ensure it's horizontally centered
+                            size_hint_x: 1 
                     MDBoxLayout:
                         size_hint_y: None
                         height: dp(72)
@@ -22,6 +30,7 @@ ScreenManager:
                             id: customer_name
                             hint_text: "Customer Name"
                             mode: "rectangle"
+                            
                     ScrollView:
                         MDBoxLayout:
                             id: product_list
@@ -65,6 +74,13 @@ ScreenManager:
                         on_release:
                             nav_drawer.set_state("close")
                             app.sync_data()
+                            
+					OneLineListItem:
+						text: "Switch Price Type"
+						on_release:
+							nav_drawer.set_state("close")
+							app.switch_price_type()
+							
                     OneLineListItem:
                         text: "About"
                         on_release:
@@ -75,36 +91,74 @@ ScreenManager:
     name: "admin"
     MDBoxLayout:
         orientation: "vertical"
+
         MDTopAppBar:
             title: "Admin - Products"
             left_action_items: [["arrow-left", lambda x: app.switch_sales()]]
             right_action_items: [["key", lambda x: app.change_password_dialog()]]
-        MDBoxLayout:
-            orientation: "vertical"
-            padding: dp(10)
-            spacing: dp(10)
-            MDTextField:
-                id: name
-                hint_text: "Product Name"
-            MDTextField:
-                id: case_size
-                hint_text: "Case Size"
-                input_filter: "int"
-            MDTextField:
-                id: price
-                hint_text: "Price"
-                input_filter: "float"
-            MDRaisedButton:
-                text: "Add Product"
-                on_press: app.add_new_product(name.text, case_size.text, price.text)
+
+        # Single ScrollView for both the form and the product list
         ScrollView:
             MDBoxLayout:
-                id: admin_list
                 orientation: "vertical"
-                adaptive_height: True
-                spacing: dp(10)
+                adaptive_height: True  # Makes the layout adjust its height based on content
                 padding: dp(10)
+                spacing: dp(10)
 
+                # Form section with input fields and the button
+                MDBoxLayout:
+                    orientation: "vertical"
+                    size_hint_y: None  # Allow scrolling of form and product list together
+                    height: self.minimum_height  # Automatically adjust height based on content
+                    spacing: dp(10)
+
+                    MDTextField:
+                        id: name
+                        hint_text: "Product Name"
+                        size_hint_y: None
+                        height: dp(40)  # Use a fixed height that is appropriate for your design
+
+                    MDTextField:
+                        id: case_size
+                        hint_text: "Case Size"
+                        input_filter: "int"
+                        size_hint_y: None
+                        height: dp(40)
+
+                    MDTextField:
+                        id: retail_price
+                        hint_text: "Retail Price"
+                        input_filter: "float"
+                        size_hint_y: None
+                        height: dp(40)
+
+                    MDTextField:
+                        id: wholesale_price
+                        hint_text: "Wholesale Price"
+                        input_filter: "float"
+                        size_hint_y: None
+                        height: dp(40)
+
+                    MDTextField:
+                        id: subd_price
+                        hint_text: "Subd Price"
+                        input_filter: "float"
+                        size_hint_y: None
+                        height: dp(40)
+
+                    MDRaisedButton:
+                        text: "Add Product"
+                        size_hint_y: None
+                        height: dp(50)
+                        on_press: app.add_new_product(name.text, case_size.text, retail_price.text, wholesale_price.text, subd_price.text)
+
+                # Product list section below the form (will scroll with the form)
+                MDBoxLayout:
+                    id: admin_list
+                    orientation: "vertical"
+                    adaptive_height: True
+                    spacing: dp(10)
+                    padding: dp(10)
 
 <ProductCard>:
     orientation: "vertical"

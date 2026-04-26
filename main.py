@@ -24,6 +24,7 @@ from kivy_config.helpers import init_db, get_products, add_product, update_produ
 
 class SalesApp(MDApp):
     total_text = StringProperty("Total ETB: 0.00")
+    selected_price_type = StringProperty("retail")
 
     def build(self):
         self.theme_cls.theme_style = "Dark"
@@ -40,6 +41,9 @@ class SalesApp(MDApp):
         init_db()
         self.load_sales()
         self.load_admin()
+        
+        if not hasattr(self, 'selected_price_type'):
+            self.selected_price_type = "retail" 
 
     def _daily_json_path(self):
         date_str = datetime.now().strftime("%d_%m_%Y")
@@ -98,13 +102,14 @@ class SalesApp(MDApp):
 
         for sale in reversed(sales):  # latest first
             customer = sale.get("customer_name", "Unknown")
+            price_type = sale.get("price_type", "Not set")  # Get the price type
             products = sale.get("products", [])
 
             total = 0
 
             # Create a new CustomerCard to display this sale
             card = CustomerCard(
-                customer_name=customer,
+                customer_name=f"{customer} ({price_type.capitalize()})",  # Display customer name with price type
                 total_text=""
             )
 
@@ -155,7 +160,7 @@ class SalesApp(MDApp):
 
             card.total_text = f"Total: {total:.2f} ETB"
             container.add_widget(card)
-
+        
     def load_theme(self):
         path = get_theme_path()
 
@@ -178,13 +183,51 @@ class SalesApp(MDApp):
         except:
             pass
 
+    def switch_price_type(self):
+        # Toggle between price types: retail, wholesale, subd
+        price_types = ["retail", "wholesale", "subd"]
+        
+        if self.selected_price_type not in price_types:
+            self.selected_price_type = "retail" 
+        
+        current_index = price_types.index(self.selected_price_type)
+        new_index = (current_index + 1) % len(price_types)
+        self.selected_price_type = price_types[new_index]
+
+        # Update the UI (on the top bar)
+        self.update_price_display()
+
+        # Update product cards with the new price type
+        self.update_price_for_products()
+
+    def update_price_display(self):
+        # Update the top app bar to show the current price type
+        screen = self.root.get_screen("sales")
+        top_app_bar = screen.ids.top_app_bar
+        top_app_bar.title = f"Price Type: {self.selected_price_type.capitalize()}"  # Set title directly
+
+    def update_price_for_products(self):
+        # Update all product cards with the new price type
+        for card in self.products:
+            card.selected_price = self.selected_price_type
+
+        self.update_total()
+
     def load_sales(self):
         self.products = []
         c = self.root.get_screen("sales").ids.product_list
         c.clear_widgets()
 
-        for pid, name, case_size, price in get_products():
-            card = ProductCard(name=name, case_size=case_size, price=price, update_callback=self.update_total)
+        for pid, name, case_size, retail_price, wholesale_price, subd_price in get_products():
+            card = ProductCard(
+                name=name,
+                case_size=case_size,
+                retail_price=retail_price,
+                wholesale_price=wholesale_price,
+                subd_price=subd_price,
+                update_callback=self.update_total,
+                selected_price=self.selected_price_type
+            )
             c.add_widget(card)
             self.products.append(card)
 
@@ -201,40 +244,61 @@ class SalesApp(MDApp):
     def save_sale(self):
         customer_name = self.root.get_screen("sales").ids.customer_name.text.strip()
         sale_products = []
+
+        # Loop over each product in the sales
         for p in self.products:
-            total_pieces = p.get_total_pieces()
+            total_pieces = p.get_total_pieces()  # Get the total pieces for the product
             if total_pieces > 0:
+                # Get the price based on selected price type
+                if self.selected_price_type == "retail":
+                    price = p.retail_price
+                elif self.selected_price_type == "wholesale":
+                    price = p.wholesale_price
+                elif self.selected_price_type == "subd":
+                    price = p.subd_price
+                else:
+                    price = 0  # Default to 0 if no price type is selected
+
+                # Add the product data to the sale list
                 product_data = {
                     "name": p.name,
                     "pieces": total_pieces,
-                    "price": p.price,
+                    "price": price,
                     "case_size": p.case_size
                 }
                 sale_products.append(product_data)
 
+        # Check if there are no products selected
         if not sale_products:
             self.show_error("Please add at least one product!", is_error=True)
             return
 
+        # Get existing sales data
         sales = self._read_daily_sales()
+
+        # Create sale data with customer name, selected price type, and products
         sale_data = {
             "customer_name": customer_name if customer_name else f"customer {len(sales) + 1}",
+            "price_type": self.selected_price_type,  # Save the selected price type
             "products": sale_products
         }
+
+        # Save the new sale data
         path = self._daily_json_path()
         sales.append(sale_data)
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(sales, f, indent=4, ensure_ascii=False)
 
+        # Clear the sale data after saving
         self.clear_sales()
 
     def load_admin(self):
         c = self.root.get_screen("admin").ids.admin_list
         c.clear_widgets()
 
-        for pid, name, case_size, price in get_products():
-            item = AdminItem(name=f"{name} | {price} ETB", pid=pid, case_size=case_size)
+        for pid, name, case_size, retail_price, wholesale_price, subd_price in get_products():
+            item = AdminItem(name=f"{name} | {retail_price} ETB, {wholesale_price} ETB, {subd_price} ETB", pid=pid, case_size=case_size)
             c.add_widget(item)
 
     def change_password_dialog(self):
@@ -292,13 +356,15 @@ class SalesApp(MDApp):
         self.show_error("Password updated successfully!", is_error=False)
 
 
-    def add_new_product(self, name, case_size, price):
-        if name and case_size and price:
-            add_product(name, int(case_size), float(price))
+    def add_new_product(self, name, case_size, retail_price, wholesale_price, subd_price):
+        if name and case_size and retail_price and wholesale_price and subd_price:
+            add_product(name, int(case_size), float(retail_price), float(wholesale_price), float(subd_price))
             scr = self.root.get_screen("admin")
             scr.ids.name.text = ""
             scr.ids.case_size.text = ""
-            scr.ids.price.text = ""
+            scr.ids.retail_price.text = ""
+            scr.ids.wholesale_price.text = ""
+            scr.ids.subd_price.text = ""
             self.load_admin()
             self.load_sales()
 
