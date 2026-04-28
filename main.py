@@ -210,14 +210,14 @@ class SalesApp(MDApp):
         # Update product cards with the new price type
         self.update_price_for_products()
         #clear
-        self.clear_sales()
+        self.clear_sales()        
+        
 
     def update_price_type_label(self, dt):
         # Manually update the price type label in the UI
         screen = self.root.get_screen("sales")
         price_label = screen.ids.price_type_label
         price_label.text = f"Price Type: {self.selected_price_type.capitalize()}"
-
 
 
     # def update_price_display(self):
@@ -232,6 +232,7 @@ class SalesApp(MDApp):
             card.selected_price = self.selected_price_type
 
         self.update_total()
+        
 
     def load_sales(self):
         self.products = []
@@ -250,7 +251,8 @@ class SalesApp(MDApp):
             )
             c.add_widget(card)
             self.products.append(card)
-
+            
+            
     def update_total(self):
         total = sum(p.get_total() for p in self.products)
         self.total_text = f"Total ETB: {total:.2f}"
@@ -312,6 +314,8 @@ class SalesApp(MDApp):
 
         # Clear the sale data after saving
         self.clear_sales()
+        
+        
 
     def load_admin(self):
         c = self.root.get_screen("admin").ids.admin_list
@@ -399,30 +403,35 @@ class SalesApp(MDApp):
         # Fetch the product details from the database
         for p in get_products():
             if p[0] == pid:
-                name, case, price = p[1], p[2], p[3]
+                name, case_size, retail_price, wholesale_price, subd_price = p[1], p[2], p[3], p[4], p[5]
 
         self.edit_id = pid
 
+
+        
+
         # Create text fields for editing
         self.n = MDTextField(text=name)
-        self.c = MDTextField(text=str(case))
-        self.p = MDTextField(text=str(price))
+        self.c = MDTextField(text=str(case_size))
+        self.retail = MDTextField(text=str(retail_price))
+        self.wholesale = MDTextField(text=str(wholesale_price))
+        self.subd = MDTextField(text=str(subd_price))
 
-        # Create a box layout to hold the fields
+        # Define the layout with corrected indentation
         box = Builder.load_string("""
 BoxLayout:
-    orientation: "vertical"
-    spacing: "10dp"
+    orientation: 'vertical'
+    spacing: '10dp'
     size_hint_y: None
-    height: "200dp"
+    height: '250dp'
 """)
-
-        # Add the fields to the box layout
         box.add_widget(self.n)
         box.add_widget(self.c)
-        box.add_widget(self.p)
+        box.add_widget(self.retail)
+        box.add_widget(self.wholesale)
+        box.add_widget(self.subd)
 
-        # Create a dialog to hold the form
+        # Create the dialog with the box layout
         self.dialog = MDDialog(
             title="Edit Product",
             type="custom",
@@ -438,9 +447,17 @@ BoxLayout:
         Clock.schedule_once(lambda dt: setattr(self.n, "focus", True), 0.2)
 
     def save_edit(self):
+        # Get the updated values from the dialog fields
+        name = self.n.text
+        case_size = int(self.c.text)
+        retail_price = float(self.retail.text)
+        wholesale_price = float(self.wholesale.text)
+        subd_price = float(self.subd.text)
+
         # Update the product in the database with new values
-        update_product(self.edit_id, self.n.text, int(self.c.text), float(self.p.text))
-        self.dialog.dismiss()
+        update_product(self.edit_id, name, case_size, retail_price, wholesale_price, subd_price)
+        
+        self.dialog.dismiss()  # Close the dialog
         self.load_admin()  # Reload the admin products
         self.load_sales()  # Reload the sales products
 
