@@ -11,17 +11,17 @@ ScreenManager:
                 MDBoxLayout:
                     orientation: "vertical"
                     MDTopAppBar:
+						id: top_app_bar
                         title: app.total_text
                         left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
                         right_action_items: [["theme-light-dark", lambda x: app.toggle_theme()], ["cog", lambda x: app.ask_password()]]
-                        MDLabel:
-                            text: f"Price Type: {app.selected_price_type.capitalize()}"
-                            theme_text_color: "Secondary"
-                            bold: True
-                            font_style: "Body2"  # Use a smaller font style like "Body2"
-                            font_size: "16sp"  # Make the font size smaller
-                            halign: "center"  # Ensure it's horizontally centered
-                            size_hint_x: 1 
+                    MDLabel:
+                        id: price_type_label  # Add an id here for easier access
+                        text: "Price Type: " + app.selected_price_type.capitalize()
+                        theme_text_color: "Secondary"
+                        halign: "center"
+                        size_hint_y: None
+                        height: self.texture_size[1] + dp(10)
                     MDBoxLayout:
                         size_hint_y: None
                         height: dp(72)

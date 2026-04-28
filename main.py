@@ -10,6 +10,8 @@ from kivy.properties import StringProperty, NumericProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
 
+from kivymd.uix.label import MDLabel
+
 from kivymd.app import MDApp
 from kivymd.uix.card import MDCard
 from kivymd.uix.screen import MDScreen
@@ -147,7 +149,7 @@ class SalesApp(MDApp):
 
                 text = f"• {name} — {qty_text} = {subtotal:.2f} ETB"
 
-                from kivymd.uix.label import MDLabel
+                
                 # Add each product's details as a label to the product_box
                 product_box.add_widget(
                     MDLabel(
@@ -183,28 +185,46 @@ class SalesApp(MDApp):
         except:
             pass
 
-    def switch_price_type(self):
-        # Toggle between price types: retail, wholesale, subd
-        price_types = ["retail", "wholesale", "subd"]
+    # def switch_price_type(self):
+        # # Toggle between price types: retail, wholesale, subd
+        # price_types = ["retail", "wholesale", "subd"]
         
-        if self.selected_price_type not in price_types:
-            self.selected_price_type = "retail" 
+        # if self.selected_price_type not in price_types:
+            # self.selected_price_type = "retail" 
+        
+        # current_index = price_types.index(self.selected_price_type)
+        # new_index = (current_index + 1) % len(price_types)
+        # self.selected_price_type = price_types[new_index]
+        
+    def switch_price_type(self):
+        price_types = ["retail", "wholesale", "subd"]
         
         current_index = price_types.index(self.selected_price_type)
         new_index = (current_index + 1) % len(price_types)
-        self.selected_price_type = price_types[new_index]
+        self.selected_price_type = price_types[new_index]  # Update the selected price type
 
-        # Update the UI (on the top bar)
-        self.update_price_display()
+
+        # Force update the label by scheduling it in the next frame
+        Clock.schedule_once(self.update_price_type_label, 0)
 
         # Update product cards with the new price type
         self.update_price_for_products()
+        #clear
+        self.clear_sales()
 
-    def update_price_display(self):
-        # Update the top app bar to show the current price type
+    def update_price_type_label(self, dt):
+        # Manually update the price type label in the UI
         screen = self.root.get_screen("sales")
-        top_app_bar = screen.ids.top_app_bar
-        top_app_bar.title = f"Price Type: {self.selected_price_type.capitalize()}"  # Set title directly
+        price_label = screen.ids.price_type_label
+        price_label.text = f"Price Type: {self.selected_price_type.capitalize()}"
+
+
+
+    # def update_price_display(self):
+        # # Update the top app bar to show the current price type
+        # screen = self.root.get_screen("sales")
+        # top_app_bar = screen.ids.top_app_bar
+        # top_app_bar.title = f"Price Type: {self.selected_price_type.capitalize()}"  # Set title directly
 
     def update_price_for_products(self):
         # Update all product cards with the new price type
@@ -513,20 +533,20 @@ BoxLayout:
         with open(path, "w") as f:
             json.dump(data, f)
 
-    def load_theme(self):
-        path = get_theme_path()
+    # def load_theme(self):
+        # path = get_theme_path()
 
-        if not os.path.exists(path):
-            return  # default stays
+        # if not os.path.exists(path):
+            # return  # default stays
 
-        try:
-            with open(path, "r") as f:
-                data = json.load(f)
+        # try:
+            # with open(path, "r") as f:
+                # data = json.load(f)
 
-            theme = data.get("theme", "Dark")
-            self.theme_cls.theme_style = theme
-        except:
-            pass
+            # theme = data.get("theme", "Dark")
+            # self.theme_cls.theme_style = theme
+        # except:
+            # pass
 
 
 if __name__ == "__main__":
