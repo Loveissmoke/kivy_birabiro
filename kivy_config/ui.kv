@@ -15,13 +15,13 @@ ScreenManager:
                         title: app.total_text
                         left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
                         right_action_items: [["theme-light-dark", lambda x: app.toggle_theme()], ["cog", lambda x: app.ask_password()]]
-                    MDLabel:
-                        id: price_type_label  # Add an id here for easier access
-                        text: "Price Type: " + app.selected_price_type.capitalize()
-                        theme_text_color: "Secondary"
-                        halign: "center"
-                        size_hint_y: None
-                        height: self.texture_size[1] + dp(10)
+                        MDLabel:
+                            id: price_type_label  # Add an id here for easier access
+                            text: "Price Type: " + app.selected_price_type.capitalize()
+                            theme_text_color: "Secondary"
+                            halign: "center"
+                            size_hint_y: None
+                            height: self.texture_size[1] + dp(10)
                     MDBoxLayout:
                         size_hint_y: None
                         height: dp(72)
@@ -122,6 +122,8 @@ ScreenManager:
                         id: case_size
                         hint_text: "Case Size"
                         input_filter: "int"
+                        multiline: False
+                        input_type: "number"
                         size_hint_y: None
                         height: dp(40)
 
@@ -177,17 +179,20 @@ ScreenManager:
             multiline: False
             input_filter: "int"
             input_type: "number"
-            mode: "rectangle"
             on_text: root.on_change()
         MDTextField:
             id: dozen
             hint_text: "Dozen"
+            multiline: False
             input_filter: "int"
+            input_type: "number"
             on_text: root.on_change()
         MDTextField:
             id: pieces
             hint_text: "Pieces"
+            multiline: False
             input_filter: "int"
+            input_type: "number"
             on_text: root.on_change()
     MDLabel:
         id: subtotal

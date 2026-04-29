@@ -31,16 +31,23 @@ class ProductCard(MDCard):
         Clock.schedule_once(self.adjust_inputs, 0)
 
     def adjust_inputs(self, *args):
-        if self.case_size <= 12:
-            self.ids.dozen.opacity = 0
-            self.ids.dozen.disabled = True
-            self.ids.dozen.size_hint_x = None
-            self.ids.dozen.width = 0
-        elif self.case_size == 1:
+# hide pcs
+        if self.case_size == 1:
             self.ids.pieces.opacity = 0
             self.ids.pieces.disabled = True
             self.ids.pieces.size_hint_x = None
             self.ids.pieces.width = 0
+# hide dozen
+            self.ids.dozen.opacity = 0
+            self.ids.dozen.disabled = True
+            self.ids.dozen.size_hint_x = None
+            self.ids.dozen.width = 0
+            
+        elif self.case_size <= 12:
+            self.ids.dozen.opacity = 0
+            self.ids.dozen.disabled = True
+            self.ids.dozen.size_hint_x = None
+            self.ids.dozen.width = 0
 
     def on_change(self):
         case = safe_int(self.ids.case.text)
@@ -97,6 +104,7 @@ class ProductCard(MDCard):
             self.ids.dozen.text = ""
         self.ids.pieces.text = ""
         self.ids.subtotal.text = "Subtotal: 0.00 ETB"
+    
 
 
 # =====================================
