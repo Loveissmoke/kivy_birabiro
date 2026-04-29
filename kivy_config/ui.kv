@@ -174,7 +174,10 @@ ScreenManager:
         MDTextField:
             id: case
             hint_text: "Case"
+            multiline: False
             input_filter: "int"
+            input_type: "number"
+            mode: "rectangle"
             on_text: root.on_change()
         MDTextField:
             id: dozen
