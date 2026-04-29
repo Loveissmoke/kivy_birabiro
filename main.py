@@ -23,6 +23,8 @@ from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen
 from kivy_config.widgets import ProductCard, AdminItem, CustomerCard
 from kivy_config.helpers import init_db, get_products, add_product, update_product, delete_product_db, check_password, update_password, get_theme_path
 
+from kivy.config import Config
+Config.set('kivy', 'window_icon', 'icon.png')
 
 class SalesApp(MDApp):
     total_text = StringProperty("Total ETB: 0.00")
