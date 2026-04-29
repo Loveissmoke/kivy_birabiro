@@ -36,6 +36,11 @@ class ProductCard(MDCard):
             self.ids.dozen.disabled = True
             self.ids.dozen.size_hint_x = None
             self.ids.dozen.width = 0
+        elif self.case_size == 1:
+            self.ids.pieces.opacity = 0
+            self.ids.pieces.disabled = True
+            self.ids.pieces.size_hint_x = None
+            self.ids.pieces.width = 0
 
     def on_change(self):
         case = safe_int(self.ids.case.text)
