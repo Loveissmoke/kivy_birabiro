@@ -19,7 +19,8 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.label import MDLabel
 
-from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen
+
+from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen
 from kivy_config.widgets import ProductCard, AdminItem, CustomerCard
 from kivy_config.helpers import init_db, get_products, add_product, update_product, delete_product_db, check_password, update_password, get_theme_path
 
@@ -40,9 +41,14 @@ class SalesApp(MDApp):
             "save": ["Save Sale", "white", "on_release", lambda x: self.save_sale()],
             "clear": ["Clear All", "white", "on_release", lambda x: self.clear_sales()],
         }
+        
+        self.screen_history = []
+        root = Builder.load_file('kivy_config/ui.kv')
+        
+        Window.bind(on_keyboard=self.on_back_button)
 
         # Loading the UI from the 'ui.kv' file
-        return Builder.load_file('kivy_config/ui.kv')
+        return root
 
     def on_start(self):
         self.load_theme()
@@ -52,6 +58,38 @@ class SalesApp(MDApp):
         
         if not hasattr(self, 'selected_price_type'):
             self.selected_price_type = "retail" 
+            
+    def switch_screen(self, screen_name):
+        current = self.root.current
+        #to avoid duplicate
+        if current != screen_name:
+            self.screen_history.append(current)
+        self.root.current = screen_name
+        
+        
+    def on_back_button(self, window, key, *arg):
+        if key == 27:
+            if self.screen_history:
+                previous = self.screen_history.pop()
+                
+                self.root.current = previous
+                
+                return True
+        return False
+        
+        
+    def switch_to_previous_screen(self):
+        """Navigate to the previous screen in the history stack."""
+        if self.screen_history:
+            previous_screen = self.screen_history.pop()  # Get the last screen from history
+            
+            if previous_screen == "admin":
+                # If going back to AdminScreen, ask for the password again
+                self.ask_password()
+            else:
+                self.root.current = previous_screen  # Switch to that screen
+        else:
+            self.switch_screen("sales") 
 
     def _daily_json_path(self):
         date_str = datetime.now().strftime("%d_%m_%Y")
@@ -95,12 +133,122 @@ class SalesApp(MDApp):
             self.show_error("Incorrect password!", is_error=True)
 
     def switch_admin(self):
-        self.root.current = "admin"
+        self.switch_screen("admin")
+        
+        
+    def get_today_report(self):
+        sales = self._read_daily_sales()  # Read data from the file
 
+        # If no data exists, it will return an empty dictionary
+        if not sales:
+            return {}
+
+        report = {}
+
+        for sale in sales:
+            for p in sale.get("products", []):
+                name = p["name"]
+                pieces = p["pieces"]
+                price = p["price"]
+                case_size = p["case_size"]
+
+                if name not in report:
+                    report[name] = {
+                        "pieces": 0,
+                        "case_size": case_size,
+                        "total_birr": 0
+                    }
+
+                report[name]["pieces"] += pieces
+                report[name]["total_birr"] += pieces * price
+
+        return report
+        
+    def format_quantity(self, pieces, case_size):
+        case = pieces // case_size
+        rem = pieces % case_size
+        dozen = rem // 12
+        pcs = rem % 12
+
+        parts = []
+        if case > 0:
+            parts.append(f"{case} CZ")
+        if dozen > 0:
+            parts.append(f"{dozen} DZ")
+        if pcs > 0:
+            parts.append(f"{pcs} PCS")
+
+        return ", ".join(parts) if parts else "0"
+
+
+        
+    def load_report(self):
+
+        screen = self.root.get_screen('report')  # Access the ReportScreen
+        container = screen.ids.get('report_list')  # Access the report_list widget within the screen
+        if container is None:
+            print("Error: 'report_list' widget not found.")
+            return
+
+        container.clear_widgets()
+
+        # If no data, show a "No data available" message
+        if not self.get_today_report():  
+            container.add_widget(
+                MDLabel(
+                    text="No sales data available for today.",
+                    size_hint_y=None,
+                    height=30
+                )
+            )
+            return
+
+        # Process and display the report data
+        report = self.get_today_report()
+        total_all = 0
+
+        for name, data in report.items():
+            pieces = data["pieces"]
+            case_size = data["case_size"]
+            total_birr = data["total_birr"]
+
+            qty_text = self.format_quantity(pieces, case_size)
+
+            text = f"{name} : {qty_text} = {total_birr:.2f} ETB"
+
+            container.add_widget(
+                MDLabel(
+                    text=text,
+                    size_hint_y=None,
+                    height=30
+                )
+            )
+
+            total_all += total_birr
+
+        # Show grand total
+        container.add_widget(
+            MDLabel(
+                text=f"[b]TOTAL: {total_all:.2f} ETB[/b]",
+                markup=True,
+                size_hint_y=None,
+                height=40
+            )
+        )
+    
+    def open_report(self):
+        self.switch_screen("report")  
+        self.load_report() 
+           
+    # def open_report(self):
+        # self.switch_screen("report")
+        # self.load_report()
+        
+        
     def open_history(self):
         # Switch to the HistoryScreen
-        self.root.current = "history"  # Make sure the screen name matches what you've set in the kv file
-        self.load_history()  # Optionally, you can load any data or history-related functionality here
+        self.switch_screen("history")
+        self.load_history() 
 
     def load_history(self):
         container = self.root.get_screen("history").ids.history_list
@@ -468,8 +616,8 @@ BoxLayout:
         self.load_sales()  # Reload the sales products
 
     def switch_sales(self):
-        # This method is used to switch back to the SalesScreen
-        self.root.current = "sales"  # Make sure the screen name matches what you've set in the kv file
+  
+        self.switch_screen("sales")
 
     # def show_error(self, message):
         # from kivymd.uix.label import MDLabel
@@ -555,6 +703,21 @@ BoxLayout:
         data = {"theme": self.theme_cls.theme_style}
         with open(path, "w") as f:
             json.dump(data, f)
+            
+    def exit_app(self):
+        self.dialog = MDDialog(
+            title="Exit",
+            text="Are you sure you want to exit?",
+            buttons=[
+                MDFlatButton(text="Cancel", on_release=lambda x: self.dialog.dismiss()),
+                MDFlatButton(text="Exit", on_release=lambda x: self._confirm_exit())
+            ]
+        )
+        self.dialog.open()
+
+    def _confirm_exit(self):
+        self.dialog.dismiss()
+        App.get_running_app().stop()
 
     # def load_theme(self):
         # path = get_theme_path()

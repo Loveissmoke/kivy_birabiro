@@ -2,6 +2,10 @@ ScreenManager:
     SalesScreen:
     AdminScreen:
     HistoryScreen:
+    ReportScreen:
+    
+    
+
 
 <SalesScreen>:
     name: "sales"
@@ -86,6 +90,11 @@ ScreenManager:
                         on_release:
                             nav_drawer.set_state("close")
                             app.show_about()
+                    OneLineListItem:
+                        text: "Exit"
+                        on_release:
+                            nav_drawer.set_state("close")
+                            app.exit_app()
 
 <AdminScreen>:
     name: "admin"
@@ -94,7 +103,7 @@ ScreenManager:
 
         MDTopAppBar:
             title: "Admin - Products"
-            left_action_items: [["arrow-left", lambda x: app.switch_sales()]]
+            left_action_items: [["arrow-left", lambda x: app.switch_to_previous_screen()]]
             right_action_items: [["key", lambda x: app.change_password_dialog()]]
 
         # Single ScrollView for both the form and the product list
@@ -228,7 +237,7 @@ ScreenManager:
         orientation: "vertical"
         MDTopAppBar:
             title: "History"
-            left_action_items: [["arrow-left", lambda x: app.switch_sales()]]
+            left_action_items: [["arrow-left", lambda x: app.switch_to_previous_screen()]]
         ScrollView:
             MDBoxLayout:
                 id: history_list
@@ -271,3 +280,26 @@ ScreenManager:
             bold: True
             size_hint_y: None
             height: self.texture_size[1]
+
+
+<ReportScreen>:
+    name: "report"
+    MDNavigationLayout:
+        ScreenManager:
+            MDScreen:
+
+                MDBoxLayout:
+                    orientation: "vertical"
+
+                    MDTopAppBar:
+                        title: "Daily Report"
+                        left_action_items: [["arrow-left", lambda x: app.switch_to_previous_screen()]]
+
+                    ScrollView:
+                        MDBoxLayout:
+                            id: report_list 
+                            orientation: "vertical"
+                            size_hint_y: None
+                            height: self.minimum_height
+                            padding: "10dp"
+                            spacing: "10dp"
