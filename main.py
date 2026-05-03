@@ -10,7 +10,7 @@ from kivy.properties import StringProperty, NumericProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
 
-from kivymd.uix.label import MDLabel
+from kivymd.uix.textfield import MDTextField
 
 from kivymd.app import MDApp
 from kivymd.uix.card import MDCard
@@ -18,9 +18,22 @@ from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.label import MDLabel
+from kivy.uix.boxlayout import BoxLayout
+from kivymd.uix.menu import MDDropdownMenu
+from kivymd.uix.list import OneLineListItem 
+from kivymd.uix.list import OneLineAvatarIconListItem, IconLeftWidget
+from kivy.metrics import dp
+from kivymd.uix.pickers import MDDatePicker
+from kivymd.uix.chip import MDChip
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.button import MDRaisedButton, MDFlatButton
+from kivy.uix.scrollview import ScrollView
 
 
-from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen
+
+
+
+from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen, AnalyticsScreen
 from kivy_config.widgets import ProductCard, AdminItem, CustomerCard
 from kivy_config.helpers import init_db, get_products, add_product, update_product, delete_product_db, check_password, update_password, get_theme_path
 
@@ -34,6 +47,15 @@ Window.softinput_mode = "below_target"
 class SalesApp(MDApp):
     total_text = StringProperty("Total ETB: 0.00")
     selected_price_type = StringProperty("retail")
+    
+    selected_from_date = None
+    selected_to_date = None
+
+    
+    analytics_selected_price_types = ["All"]
+    analytics_price_types = ['All', 'retail', 'wholesale', 'subd']
+    
+
 
     def build(self):
         self.theme_cls.theme_style = "Dark"
@@ -718,6 +740,243 @@ BoxLayout:
     def _confirm_exit(self):
         self.dialog.dismiss()
         App.get_running_app().stop()
+        
+        
+        
+    def _get_files_in_range(self, from_date, to_date):
+        base = App.get_running_app().user_data_dir
+        files = []
+
+        try:
+            start = datetime.strptime(from_date, "%d_%m_%Y")
+            end = datetime.strptime(to_date, "%d_%m_%Y")
+        except:
+            return []
+
+        for fname in os.listdir(base):
+            if fname.startswith(".bk_") and fname.endswith(".json"):
+                try:
+                    date_str = fname.replace(".bk_", "").replace(".json", "")
+                    file_date = datetime.strptime(date_str, "%d_%m_%Y")
+
+                    if start <= file_date <= end:
+                        files.append(os.path.join(base, fname))
+                except:
+                    continue
+
+        return files
+            
+            
+
+
+    def open_date_picker(self, date_type):
+        self.date_type = date_type
+
+        date_dialog = MDDatePicker(mode="range")
+        date_dialog.bind(on_save=self.on_date_selected)
+        date_dialog.open()
+        
+        
+    def on_date_selected(self, instance, value, date_range):
+        if date_range:
+            # Convert both dates to the desired string format
+            self.selected_from_date = date_range[0].strftime("%d_%m_%Y")
+            self.selected_to_date = date_range[-1].strftime("%d_%m_%Y")
+
+            # Format the date range text
+            date_range_text = f"From: {self.selected_from_date} To: {self.selected_to_date}"
+
+            # Update the UI label to display the selected date range
+            screen = self.root.get_screen("analytics") 
+            screen.ids.date_range_label.text = date_range_text  
+            
+
+
+    def open_price_type_dialog(self):
+        price_types = ["All", "Retail", "Wholesale", "Subd"]
+
+        scroll = ScrollView(
+            do_scroll_x=True,
+            do_scroll_y=False,
+            size_hint_y=None,
+            height="60dp"
+        )
+
+        self.chip_box = MDBoxLayout(
+            orientation="horizontal",
+            adaptive_width=True,
+            size_hint_y=None,
+            height="50dp",
+            spacing="8dp",
+            padding="10dp"
+        )
+
+        scroll.add_widget(self.chip_box)
+        self.chip_buttons = {}
+
+        for pt in price_types:
+            btn = MDFlatButton(
+                text=pt,
+                theme_text_color="Custom",      # 🔥 IMPORTANT FIX
+                text_color=(0, 0, 0, 1),        # default black
+                md_bg_color=(0.96, 0.96, 0.96, 1),
+            )
+
+            btn.bind(on_release=lambda x, p=pt: self.toggle_chip(p))
+
+            self.chip_buttons[pt] = btn
+            self.chip_box.add_widget(btn)
+
+        self.price_dialog = MDDialog(
+            title="Select Price Types",
+            type="custom",
+            content_cls=scroll,   # 🔥 IMPORTANT
+            buttons=[
+                MDRaisedButton(
+                    text="CANCEL",
+                    on_release=lambda x: self.price_dialog.dismiss()
+                ),
+                MDRaisedButton(
+                    text="OK",
+                    on_release=self.on_price_dialog_ok
+                ),
+            ],
+        )
+
+        self.price_dialog.open()
+
+        # 🔥 IMPORTANT: update AFTER buttons exist
+        self.update_chip_ui()
+
+
+
+    def toggle_chip(self, price_type):
+
+        if price_type == "All":
+            self.analytics_selected_price_types = ["All"]
+        else:
+            if "All" in self.analytics_selected_price_types:
+                self.analytics_selected_price_types.remove("All")
+
+            if price_type in self.analytics_selected_price_types:
+                self.analytics_selected_price_types.remove(price_type)
+            else:
+                self.analytics_selected_price_types.append(price_type)
+
+        if not self.analytics_selected_price_types:
+            self.analytics_selected_price_types = ["All"]
+
+        # 🔥 FORCE UI UPDATE IMMEDIATELY
+        self.update_chip_ui()
+        self.update_price_type_field()
+
+    def update_chip_ui(self):
+        for pt, btn in self.chip_buttons.items():
+
+            if pt in self.analytics_selected_price_types:
+                # SELECTED (deep material blue + white text for contrast)
+                btn.md_bg_color = (0.10, 0.45, 0.90, 1)
+                btn.text_color = (1, 1, 1, 1)
+
+            else:
+                # UNSELECTED (light gray + dark text for readability)
+                btn.md_bg_color = (0.96, 0.96, 0.96, 1)
+                btn.text_color = (0, 0, 0, 1)
+                
+    def on_price_dialog_ok(self, *args):
+        self.update_price_type_field()
+        self.price_dialog.dismiss()
+        
+    def update_price_type_field(self):
+        screen = self.root.get_screen("analytics")
+        screen.ids.price_type.text = ", ".join(self.analytics_selected_price_types)
+    
+    def load_analytics(self):
+        screen = self.root.get_screen("analytics")
+        container = screen.ids.analytics_list
+        container.clear_widgets()
+
+        from_date = self.selected_from_date
+        to_date = self.selected_to_date
+
+        selected_types = [t.lower() for t in self.analytics_selected_price_types]
+
+        if not from_date or not to_date:
+            container.add_widget(MDLabel(text="Please select a valid date range.", size_hint_y=None, height=30))
+            return
+
+        files = self._get_files_in_range(from_date, to_date)
+
+        if not files:
+            container.add_widget(MDLabel(text="No data found in the specified date range.", size_hint_y=None, height=30))
+            return
+
+        product_summary = {}
+        total_sum = 0
+
+        for path in files:
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    sales = json.load(f)
+            except Exception as e:
+                print(f"Error reading file {path}: {e}")
+                continue
+
+            for sale in sales:
+
+                # ✅ MULTI FILTER FIX
+                if "all" not in selected_types:
+                    if sale.get("price_type", "").lower() not in selected_types:
+                        continue
+
+                for p in sale.get("products", []):
+                    name = p["name"]
+                    pieces = p["pieces"]
+                    price = p["price"]
+                    case_size = p["case_size"]
+
+                    if name not in product_summary:
+                        product_summary[name] = {
+                            "pieces": 0,
+                            "total": 0.0,
+                            "case_size": case_size
+                        }
+
+                    product_summary[name]["pieces"] += pieces
+                    product_summary[name]["total"] += pieces * price
+                    total_sum += pieces * price
+
+        if not product_summary:
+            container.add_widget(MDLabel(text="No products found matching the filters.", size_hint_y=None, height=30))
+            return
+
+        sorted_products = sorted(product_summary.items())
+
+        for name, data in sorted_products:
+            pieces = data["pieces"]
+            total_sales = data["total"]
+            case_size = data["case_size"]
+
+            qty_text = self.format_quantity(pieces, case_size)
+
+            text = f"{name} → {qty_text} = {total_sales:.2f} ETB"
+
+            container.add_widget(
+                MDLabel(
+                    text=text,
+                    size_hint_y=None,
+                    height=30
+                )
+            )
+
+        container.add_widget(
+            MDLabel(
+                text=f"[b]TOTAL SALES: {total_sum:.2f} ETB[/b]",
+                markup=True,
+                size_hint_y=None,
+                height=40
+            )
+        )
 
     # def load_theme(self):
         # path = get_theme_path()

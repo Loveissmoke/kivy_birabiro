@@ -8,7 +8,11 @@ class AdminScreen(MDScreen):
 
 class HistoryScreen(MDScreen):
     pass
+    
 class ReportScreen(MDScreen):
     pass
     
+class AnalyticsScreen(MDScreen):
+    pass
     
+

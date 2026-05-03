@@ -3,6 +3,7 @@ ScreenManager:
     AdminScreen:
     HistoryScreen:
     ReportScreen:
+    AnalyticsScreen:
     
     
 
@@ -69,10 +70,11 @@ ScreenManager:
                             nav_drawer.set_state("close")
                             app.open_report()
                     OneLineListItem:
-                        text: "By Date"
+                        text: "Analytics"
                         on_release:
                             nav_drawer.set_state("close")
-                            app.open_by_date()
+                            app.switch_screen("analytics")
+                            
                     OneLineListItem:
                         text: "Sync"
                         on_release:
@@ -303,3 +305,77 @@ ScreenManager:
                             height: self.minimum_height
                             padding: "10dp"
                             spacing: "10dp"
+
+<AnalyticsScreen>:
+    name: "analytics"
+
+    MDBoxLayout:
+        orientation: "vertical"
+
+        MDTopAppBar:
+            title: "Analytics"
+            left_action_items: [["arrow-left", lambda x: app.switch_to_previous_screen()]]
+
+        ScrollView:
+            MDBoxLayout:
+                orientation: "vertical"
+                padding: "20dp"
+                spacing: "10dp"
+                size_hint_y: None
+                height: self.minimum_height
+
+                # Date picker
+                MDRaisedButton:
+                    text: "Select Date Range"
+                    on_release: app.open_date_picker("from")
+                    size_hint_y: None
+                    height: "50dp"
+
+                # Label to show selected "From Date"
+                MDLabel:
+                    id: date_range_label
+                    text: "Date Range: None"
+                    size_hint_y: None
+                    height: "40dp"
+
+              
+
+                # Price type filter
+                MDCard:
+                    size_hint_y: None
+                    height: "52dp"
+                    padding: "10dp"
+                    radius: [12, 12, 12, 12]
+                    elevation: 1
+                    ripple_behavior: True
+
+                    on_release: app.open_price_type_dialog()
+
+                    MDBoxLayout:
+                        orientation: "horizontal"
+                        spacing: "10dp"
+
+                        MDLabel:
+                            id: price_type
+                            text: "Select Price Type"
+                            halign: "left"
+                            valign: "middle"
+                            theme_text_color: "Primary"
+
+
+                # Load Analytics Button
+                MDRaisedButton:
+                    text: "Load Analytics"
+                    on_release: app.load_analytics()
+                    size_hint_y: None
+                    height: "50dp"
+
+                # Placeholder for the analytics list (to be populated dynamically)
+                MDBoxLayout:
+                    id: analytics_list
+                    orientation: "vertical"
+                    adaptive_height: True
+                    padding: "10dp"
+                    spacing: "10dp"
+                    size_hint_y: None
+                    height: self.minimum_height
