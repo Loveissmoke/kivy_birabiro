@@ -981,6 +981,15 @@ BoxLayout:
                 height=40
             )
         )
+    def show_about(self):
+        self.dialog = MDDialog(
+            title="About",
+            text="Sales App\nVersion 1.0\n brktmbrt@gmail.com ",
+            buttons=[
+                MDFlatButton(text="OK", on_release=lambda x: self.dialog.dismiss())
+            ]
+        )
+        self.dialog.open()
 
     # def load_theme(self):
         # path = get_theme_path()
