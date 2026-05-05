@@ -40,7 +40,7 @@ from kivy_config.helpers import init_db, get_products, add_product, update_produ
 from kivy.core.window import Window
 
 from kivy.config import Config
-Config.set('kivy', 'window_icon', 'icon.png')
+# Config.set('kivy', 'window_icon', 'icon.png')
 
 Window.softinput_mode = "below_target"
 
@@ -73,6 +73,9 @@ class SalesApp(MDApp):
         return root
 
     def on_start(self):
+        Clock.schedule_once(lambda dt: self.init_app(), 0)
+        
+    def init_app(self):
         self.load_theme()
         init_db()
         self.load_sales()
@@ -374,7 +377,8 @@ class SalesApp(MDApp):
         
     def switch_price_type(self):
         price_types = ["retail", "wholesale", "subd"]
-        
+        if self.selected_price_type not in price_types:
+            self.selected_price_type = "retail"
         current_index = price_types.index(self.selected_price_type)
         new_index = (current_index + 1) % len(price_types)
         self.selected_price_type = price_types[new_index]  # Update the selected price type
