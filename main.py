@@ -59,6 +59,7 @@ class SalesApp(MDApp):
 
     def build(self):
         self.theme_cls.theme_style = "Dark"
+        self.theme_cls.material_style = "M2"
         self.fab_actions = {
             "save": ["Save Sale", "white", "on_release", lambda x: self.save_sale()],
             "clear": ["Clear All", "white", "on_release", lambda x: self.clear_sales()],
@@ -724,6 +725,7 @@ BoxLayout:
             self.theme_cls.theme_style = "Dark"
         self.save_theme()
 
+
     def save_theme(self):
         path = get_theme_path()
         data = {"theme": self.theme_cls.theme_style}
@@ -990,6 +992,9 @@ BoxLayout:
             ]
         )
         self.dialog.open()
+        
+        
+
 
     # def load_theme(self):
         # path = get_theme_path()
