@@ -31,11 +31,17 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
     pieces_text = StringProperty("")
     rv_index = NumericProperty(0)
     
+    # ✅ Add a flag to prevent on_change() from syncing back to rv.data during refresh
+    is_refreshing = False
+    
     def refresh_view_attrs(self, rv, index, data):
         self.rv = rv
         self.rv_index = index
         result = super().refresh_view_attrs(rv, index, data)
 
+        # Set the flag to prevent on_change() from syncing
+        self.is_refreshing = True
+        
         # Always sync the widget's TextInput from rv.data
         self.ids.case.text = data.get("case_text", "")
         if "dozen" in self.ids:
@@ -44,26 +50,12 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
 
         # Update subtotal
         self.on_change()
+        
+        # Reset the flag
+        self.is_refreshing = False
 
         return result
         
-
-
-
-
-
-
-    # def restore_inputs(self, *args):
-
-        # if "case" in self.ids:
-            # self.ids.case.text = self.case_text
-
-        # if "dozen" in self.ids:
-            # self.ids.dozen.text = self.dozen_text
-
-        # if "pieces" in self.ids:
-            # self.ids.pieces.text = self.pieces_text
-
 
     selected_price = StringProperty()
 
@@ -118,9 +110,19 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
             self.ids.dozen.width = 0
 
     def on_change(self):
-        case = safe_int(self.case_text)
-        pieces = safe_int(self.pieces_text)
-        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
+        # ✅ CRITICAL FIX: Get fresh data from rv.data using current index
+        # This prevents stale index issues when RecycleView reuses widgets
+        if not hasattr(self, "rv") or self.rv is None:
+            return
+        
+        if self.rv_index >= len(self.rv.data):
+            return
+            
+        data = self.rv.data[self.rv_index]
+        
+        case = safe_int(self.ids.case.text)
+        pieces = safe_int(self.ids.pieces.text)
+        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
 
         total = (case * self.case_size) + (dozen * 12) + pieces
         
@@ -139,9 +141,10 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         anim = Animation(opacity=0.3, duration=0.1) + Animation(opacity=1, duration=0.1)
         anim.start(self.ids.subtotal)
 
-        self.rv.data[self.rv_index]["case_text"] = self.case_text
-        self.rv.data[self.rv_index]["dozen_text"] = self.dozen_text
-        self.rv.data[self.rv_index]["pieces_text"] = self.pieces_text
+        # ✅ ONLY update the correct index in rv.data
+        data["case_text"] = self.ids.case.text
+        data["dozen_text"] = self.ids.dozen.text
+        data["pieces_text"] = self.ids.pieces.text
 
         self.update_callback()
 
@@ -171,11 +174,18 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         return (case * self.case_size) + (dozen * 12) + pieces
 
     def clear(self):
+        """Clear inputs safely without syncing back to wrong data indices."""
         if hasattr(self, "rv") and self.rv_index is not None:
+            # ✅ Directly update both data AND widget
             self.rv.data[self.rv_index]["case_text"] = ""
             self.rv.data[self.rv_index]["dozen_text"] = ""
             self.rv.data[self.rv_index]["pieces_text"] = ""
-            self.rv.refresh_from_data()  # Force update the widget from rv.data
+            
+            # ✅ Update widget properties WITHOUT triggering on_change
+            self.ids.case.text = ""
+            self.ids.dozen.text = ""
+            self.ids.pieces.text = ""
+            self.ids.subtotal.text = "Subtotal: 0.00 ETB"
 
 
 # =====================================

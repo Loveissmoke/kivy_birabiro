@@ -377,21 +377,27 @@ class SalesApp(MDApp):
         # self.selected_price_type = price_types[new_index]
         
     def switch_price_type(self):
+        """Switch between retail, wholesale, and subd price types."""
         price_types = ["retail", "wholesale", "subd"]
+        
         if self.selected_price_type not in price_types:
             self.selected_price_type = "retail"
+        
         current_index = price_types.index(self.selected_price_type)
         new_index = (current_index + 1) % len(price_types)
-        self.selected_price_type = price_types[new_index]  # Update the selected price type
+        self.selected_price_type = price_types[new_index]
 
-
-        # Force update the label by scheduling it in the next frame
+        # ✅ Update the label
         Clock.schedule_once(self.update_price_type_label, 0)
 
-        # Update product cards with the new price type
+        # ✅ Update products with new price type
         self.update_price_for_products()
-        #clear
-        self.clear_sales()        
+
+        # ✅ DON'T CLEAR - just update totals!
+        # Remove: self.clear_sales()
+        
+        # ✅ Update total with new prices
+        Clock.schedule_once(lambda dt: self.update_total(), 0.1)    
         
 
     def update_price_type_label(self, dt):
@@ -408,19 +414,21 @@ class SalesApp(MDApp):
         # top_app_bar.title = f"Price Type: {self.selected_price_type.capitalize()}"  # Set title directly
 
     def update_price_for_products(self):
+        """Update all products with the new selected price type (visible AND hidden)."""
         rv = self.root.get_screen("sales").ids.product_list
 
-        # update ALL data items
+        # ✅ Step 1: Update data items for ALL products
         for item in rv.data:
             item["selected_price"] = self.selected_price_type
 
-        # rebuild recycleview
+        # ✅ Step 2: Force RecycleView to rebuild ALL cards
+        # This ensures hidden products are updated too
         rv.refresh_from_data()
 
-        # update totals after refresh
+        # ✅ Step 3: Update the total calculation
         Clock.schedule_once(lambda dt: self.update_total(), 0.1)
         
-
+        
     def load_sales(self):
         self.products = []
         rv = self.root.get_screen("sales").ids.product_list
@@ -479,19 +487,33 @@ class SalesApp(MDApp):
         self.total_text = f"Total ETB: {total:.2f}"
         
     def clear_sales(self):
+        """Clear all inputs from ALL product cards."""
         rv = self.root.get_screen("sales").ids.product_list
 
-        for i, item in enumerate(rv.data):
+        # ✅ Clear the data
+        for item in rv.data:
+            item["case_text"] = ""
+            item["dozen_text"] = ""
+            item["pieces_text"] = ""
+
+        # ✅ Update visible widget TextInputs directly (don't rebuild)
+        for i in range(len(rv.data)):
             item_card = rv.view_adapter.get_visible_view(i)
             if item_card:
-                item_card.clear()
+                item_card.ids.case.text = ""
+                item_card.ids.dozen.text = ""
+                item_card.ids.pieces.text = ""
+                item_card.ids.subtotal.text = "Subtotal: 0.00 ETB"
 
-        # Reset total
+        # ✅ Update total
+        self.update_total()
+
+        # Reset total display
         self.total_text = "Total ETB: 0.00"
 
         # Clear customer name
         self.root.get_screen("sales").ids.customer_name.text = ""
-    
+ 
     
     def save_sale(self):
 
@@ -589,7 +611,7 @@ class SalesApp(MDApp):
 
             return
 
-        #self.clear_sales()
+        self.clear_sales()
 
         self.show_error(
             "Sale saved successfully!",
