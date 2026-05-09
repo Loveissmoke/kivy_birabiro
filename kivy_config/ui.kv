@@ -39,13 +39,19 @@ ScreenManager:
 
 
                             
-                    ScrollView:
-                        MDBoxLayout:
-                            id: product_list
-                            orientation: "vertical"
-                            adaptive_height: True
-                            padding: dp(10)
-                            spacing: dp(10)
+                    RecycleView:
+                        id: product_list
+                        viewclass: 'ProductCard'
+                        scroll_type: ['bars', 'content']
+                        bar_width: dp(8)
+                        RecycleBoxLayout:
+                            default_size: None, dp(120)
+                            default_size_hint: 1, None
+                            size_hint_y: None
+                            height: self.minimum_height
+                            orientation: 'vertical'
+                            spacing: dp(8)
+                            
                 MDFloatingActionButtonSpeedDial:
                     data: app.fab_actions
                     pos_hint: {"right": 0.95, "y": 0.02}
@@ -189,25 +195,22 @@ ScreenManager:
         spacing: dp(8)
         MDTextField:
             id: case
-            hint_text: "Case"
-            multiline: False
-            input_filter: "int"
-            input_type: "number"
-            on_text: root.on_change()
+            hint_text: "case"
+            on_text:
+                root.case_text = self.text
+                root.on_change()
         MDTextField:
             id: dozen
-            hint_text: "Dozen"
-            multiline: False
-            input_filter: "int"
-            input_type: "number"
-            on_text: root.on_change()
+            hint_text: "dozen"
+            on_text:
+                root.dozen_text = self.text
+                root.on_change()
         MDTextField:
             id: pieces
-            hint_text: "Pieces"
-            multiline: False
-            input_filter: "int"
-            input_type: "number"
-            on_text: root.on_change()
+            hint_text: "pieces"
+            on_text:
+                root.pieces_text = self.text
+                root.on_change()
     MDLabel:
         id: subtotal
         text: "Subtotal: 0.00 ETB"

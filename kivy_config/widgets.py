@@ -4,6 +4,7 @@ from kivymd.uix.card import MDCard
 from kivy.clock import Clock
 from kivy.animation import Animation
 from kivymd.uix.label import MDLabel
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
 
 
 # Function to safely convert values to integers
@@ -17,42 +18,109 @@ def safe_int(v):
 # =====================================
 # Product Card (Sales screen)
 # =====================================
-class ProductCard(MDCard):
+class ProductCard(RecycleDataViewBehavior, MDCard):
     name = StringProperty()
     case_size = NumericProperty()
     retail_price = NumericProperty()
     wholesale_price = NumericProperty()
     subd_price = NumericProperty()
     selected_price = StringProperty()
+    
+    case_text = StringProperty("")
+    dozen_text = StringProperty("")
+    pieces_text = StringProperty("")
+    rv_index = NumericProperty(0)
+    
+    def refresh_view_attrs(self, rv, index, data):
+        self.rv = rv
+        self.rv_index = index
+        result = super().refresh_view_attrs(rv, index, data)
 
-    def __init__(self, update_callback, **kwargs):
+        # Always sync the widget's TextInput from rv.data
+        self.ids.case.text = data.get("case_text", "")
+        if "dozen" in self.ids:
+            self.ids.dozen.text = data.get("dozen_text", "")
+        self.ids.pieces.text = data.get("pieces_text", "")
+
+        # Update subtotal
+        self.on_change()
+
+        return result
+        
+
+
+
+
+
+
+    # def restore_inputs(self, *args):
+
+        # if "case" in self.ids:
+            # self.ids.case.text = self.case_text
+
+        # if "dozen" in self.ids:
+            # self.ids.dozen.text = self.dozen_text
+
+        # if "pieces" in self.ids:
+            # self.ids.pieces.text = self.pieces_text
+
+
+    selected_price = StringProperty()
+
+    def on_selected_price(self, *args):
+        Clock.schedule_once(lambda dt: self.on_change(), 0)
+
+
+
+    def __init__(self, update_callback=None, **kwargs):
+        self.update_callback = update_callback or (lambda: None)
         super().__init__(**kwargs)
-        self.update_callback = update_callback
+        Clock.schedule_once(self.adjust_inputs, 0)
+
+    def on_kv_post(self, base_widget):
         Clock.schedule_once(self.adjust_inputs, 0)
 
     def adjust_inputs(self, *args):
-# hide pcs
+
+        # RESET EVERYTHING FIRST
+        self.ids.pieces.opacity = 1
+        self.ids.pieces.disabled = False
+        self.ids.pieces.size_hint_x = 1
+        self.ids.pieces.width = 100
+
+        self.ids.dozen.opacity = 1
+        self.ids.dozen.disabled = False
+        self.ids.dozen.size_hint_x = 1
+        self.ids.dozen.width = 100
+
+        # CASE SIZE = 1
         if self.case_size == 1:
+
+            # hide pieces
             self.ids.pieces.opacity = 0
             self.ids.pieces.disabled = True
             self.ids.pieces.size_hint_x = None
             self.ids.pieces.width = 0
-# hide dozen
+
+            # hide dozen
             self.ids.dozen.opacity = 0
             self.ids.dozen.disabled = True
             self.ids.dozen.size_hint_x = None
             self.ids.dozen.width = 0
-            
+
+        # CASE SIZE <= 12
         elif self.case_size <= 12:
+
+            # hide dozen only
             self.ids.dozen.opacity = 0
             self.ids.dozen.disabled = True
             self.ids.dozen.size_hint_x = None
             self.ids.dozen.width = 0
 
     def on_change(self):
-        case = safe_int(self.ids.case.text)
-        pieces = safe_int(self.ids.pieces.text)
-        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
+        case = safe_int(self.case_text)
+        pieces = safe_int(self.pieces_text)
+        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
 
         total = (case * self.case_size) + (dozen * 12) + pieces
         
@@ -71,12 +139,16 @@ class ProductCard(MDCard):
         anim = Animation(opacity=0.3, duration=0.1) + Animation(opacity=1, duration=0.1)
         anim.start(self.ids.subtotal)
 
+        self.rv.data[self.rv_index]["case_text"] = self.case_text
+        self.rv.data[self.rv_index]["dozen_text"] = self.dozen_text
+        self.rv.data[self.rv_index]["pieces_text"] = self.pieces_text
+
         self.update_callback()
 
     def get_total(self):
-        case = safe_int(self.ids.case.text)
-        pieces = safe_int(self.ids.pieces.text)
-        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
+        case = safe_int(self.case_text)
+        pieces = safe_int(self.pieces_text)
+        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
 
         # Calculate total number of items
         total_items = (case * self.case_size) + (dozen * 12) + pieces
@@ -92,19 +164,18 @@ class ProductCard(MDCard):
             return 0
 
     def get_total_pieces(self):
-        case = safe_int(self.ids.case.text)
-        pieces = safe_int(self.ids.pieces.text)
-        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
+        case = safe_int(self.case_text)
+        pieces = safe_int(self.pieces_text)
+        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
 
         return (case * self.case_size) + (dozen * 12) + pieces
 
     def clear(self):
-        self.ids.case.text = ""
-        if "dozen" in self.ids:
-            self.ids.dozen.text = ""
-        self.ids.pieces.text = ""
-        self.ids.subtotal.text = "Subtotal: 0.00 ETB"
-    
+        if hasattr(self, "rv") and self.rv_index is not None:
+            self.rv.data[self.rv_index]["case_text"] = ""
+            self.rv.data[self.rv_index]["dozen_text"] = ""
+            self.rv.data[self.rv_index]["pieces_text"] = ""
+            self.rv.refresh_from_data()  # Force update the widget from rv.data
 
 
 # =====================================

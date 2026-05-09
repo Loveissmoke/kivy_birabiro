@@ -408,96 +408,194 @@ class SalesApp(MDApp):
         # top_app_bar.title = f"Price Type: {self.selected_price_type.capitalize()}"  # Set title directly
 
     def update_price_for_products(self):
-        # Update all product cards with the new price type
-        for card in self.products:
-            card.selected_price = self.selected_price_type
+        rv = self.root.get_screen("sales").ids.product_list
 
-        self.update_total()
+        # update ALL data items
+        for item in rv.data:
+            item["selected_price"] = self.selected_price_type
+
+        # rebuild recycleview
+        rv.refresh_from_data()
+
+        # update totals after refresh
+        Clock.schedule_once(lambda dt: self.update_total(), 0.1)
         
 
     def load_sales(self):
         self.products = []
-        c = self.root.get_screen("sales").ids.product_list
-        c.clear_widgets()
+        rv = self.root.get_screen("sales").ids.product_list
+        rv.data = []  # Clear existing data
 
+        product_list_data = []
+  
         for pid, name, case_size, retail_price, wholesale_price, subd_price in get_products():
-            card = ProductCard(
-                name=name,
-                case_size=case_size,
-                retail_price=retail_price,
-                wholesale_price=wholesale_price,
-                subd_price=subd_price,
-                update_callback=self.update_total,
-                selected_price=self.selected_price_type
-            )
-            c.add_widget(card)
-            self.products.append(card)
+            product_dict = {
+                "name": name,
+                "case_size": case_size,
+                "retail_price": retail_price,
+                "wholesale_price": wholesale_price,
+                "subd_price": subd_price,
+                "selected_price": self.selected_price_type,
+                "case_text": "",
+                "dozen_text": "",
+                "pieces_text": "",
+                "update_callback": self.update_total
+            }
+            product_list_data.append(product_dict)
+
+        rv.data = product_list_data
             
             
     def update_total(self):
-        total = sum(p.get_total() for p in self.products)
+        rv = self.root.get_screen("sales").ids.product_list
+
+        total = 0
+
+        for item in rv.data:
+
+            case = int(item.get("case_text") or 0)
+            dozen = int(item.get("dozen_text") or 0)
+            pieces = int(item.get("pieces_text") or 0)
+
+            case_size = item["case_size"]
+
+            total_pieces = (case * case_size) + (dozen * 12) + pieces
+
+            # choose correct price
+            if item["selected_price"] == "retail":
+                price = item["retail_price"]
+
+            elif item["selected_price"] == "wholesale":
+                price = item["wholesale_price"]
+
+            elif item["selected_price"] == "subd":
+                price = item["subd_price"]
+
+            else:
+                price = 0
+
+            total += total_pieces * price
+
         self.total_text = f"Total ETB: {total:.2f}"
-
+        
     def clear_sales(self):
-        for p in self.products:
-            p.clear()
-        self.total_text = "Total ETB: 0.00"
-        self.root.get_screen("sales").ids.customer_name.text = ""
+        rv = self.root.get_screen("sales").ids.product_list
 
+        for i, item in enumerate(rv.data):
+            item_card = rv.view_adapter.get_visible_view(i)
+            if item_card:
+                item_card.clear()
+
+        # Reset total
+        self.total_text = "Total ETB: 0.00"
+
+        # Clear customer name
+        self.root.get_screen("sales").ids.customer_name.text = ""
+    
+    
     def save_sale(self):
-        customer_name = self.root.get_screen("sales").ids.customer_name.text.strip()
+
+        customer_name = self.root.get_screen(
+            "sales"
+        ).ids.customer_name.text.strip()
+
         sale_products = []
 
-        # Loop over each product in the sales
-        for p in self.products:
-            total_pieces = p.get_total_pieces()  # Get the total pieces for the product
-            if total_pieces > 0:
-                # Get the price based on selected price type
-                if self.selected_price_type == "retail":
-                    price = p.retail_price
-                elif self.selected_price_type == "wholesale":
-                    price = p.wholesale_price
-                elif self.selected_price_type == "subd":
-                    price = p.subd_price
-                else:
-                    price = 0  # Default to 0 if no price type is selected
+        rv = self.root.get_screen("sales").ids.product_list
 
-                # Add the product data to the sale list
-                product_data = {
-                    "name": p.name,
-                    "pieces": total_pieces,
-                    "price": price,
-                    "case_size": p.case_size
-                }
-                sale_products.append(product_data)
+        # READ DIRECTLY FROM rv.data
+        for item in rv.data:
 
-        # Check if there are no products selected
+            case = int(item.get("case_text") or 0)
+            dozen = int(item.get("dozen_text") or 0)
+            pieces = int(item.get("pieces_text") or 0)
+
+            case_size = item["case_size"]
+
+            total_pieces = (
+                (case * case_size)
+                + (dozen * 12)
+                + pieces
+            )
+
+            if total_pieces <= 0:
+                continue
+
+            # Correct price
+            if self.selected_price_type == "retail":
+                price = item["retail_price"]
+
+            elif self.selected_price_type == "wholesale":
+                price = item["wholesale_price"]
+
+            elif self.selected_price_type == "subd":
+                price = item["subd_price"]
+
+            else:
+                price = 0
+
+            product_data = {
+                "name": item["name"],
+                "pieces": total_pieces,
+                "price": price,
+                "case_size": case_size
+            }
+
+            sale_products.append(product_data)
+
+        # Nothing selected
         if not sale_products:
-            self.show_error("Please add at least one product!", is_error=True)
+            self.show_error(
+                "Please add at least one product!",
+                is_error=True
+            )
             return
 
-        # Get existing sales data
+        # Existing sales
         sales = self._read_daily_sales()
 
-        # Create sale data with customer name, selected price type, and products
+        # Sale object
         sale_data = {
-            "customer_name": customer_name if customer_name else f"customer {len(sales) + 1}",
-            "price_type": self.selected_price_type,  # Save the selected price type
+            "customer_name": (
+                customer_name
+                if customer_name
+                else f"customer {len(sales) + 1}"
+            ),
+
+            "price_type": self.selected_price_type,
             "products": sale_products
         }
 
-        # Save the new sale data
-        path = self._daily_json_path()
         sales.append(sale_data)
 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(sales, f, indent=4, ensure_ascii=False)
+        path = self._daily_json_path()
 
-        # Clear the sale data after saving
-        self.clear_sales()
-        
-        
+        try:
+            with open(path, "w", encoding="utf-8") as f:
 
+                json.dump(
+                    sales,
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+
+        except Exception as e:
+
+            self.show_error(
+                f"Save failed: {e}",
+                is_error=True
+            )
+
+            return
+
+        #self.clear_sales()
+
+        self.show_error(
+            "Sale saved successfully!",
+            is_error=False
+        )
+        
     def load_admin(self):
         c = self.root.get_screen("admin").ids.admin_list
         c.clear_widgets()
