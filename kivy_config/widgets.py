@@ -47,7 +47,7 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         self.subd_price = data.get("subd_price", 0)
         self.selected_price = data.get("selected_price", "retail")
 
-        # ✅ Sync TextInput values from data
+        # ✅ Sync TextInput values from data DIRECTLY (not via properties)
         self.ids.case.text = data.get("case_text", "")
         if "dozen" in self.ids:
             self.ids.dozen.text = data.get("dozen_text", "")

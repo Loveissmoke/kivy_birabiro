@@ -294,7 +294,7 @@ class SalesApp(MDApp):
 
         sales = self._read_daily_sales()
 
-        for sale in reversed(sales):  # latest first
+        for sale_index, sale in enumerate(reversed(sales)):  # latest first
             customer = sale.get("customer_name", "Unknown")
             price_type = sale.get("price_type", "Not set")  # Get the price type
             products = sale.get("products", [])
@@ -304,7 +304,10 @@ class SalesApp(MDApp):
             # Create a new CustomerCard to display this sale
             card = CustomerCard(
                 customer_name=f"{customer} ({price_type.capitalize()})",  # Display customer name with price type
-                total_text=""
+                total_text="",
+                sale_index=sale_index,  # Track the sale index
+                edit_callback=self.edit_sale,  # Set edit callback
+                delete_callback=self.delete_sale  # Set delete callback
             )
 
             # Access product_box inside CustomerCard
@@ -354,6 +357,100 @@ class SalesApp(MDApp):
 
             card.total_text = f"Total: {total:.2f} ETB"
             container.add_widget(card)
+
+    def edit_sale(self, sale_index):
+        """Edit a sale from history."""
+        sales = self._read_daily_sales()
+        
+        # Reverse to get correct index (since we reversed when displaying)
+        actual_index = len(sales) - 1 - sale_index
+        
+        if actual_index < 0 or actual_index >= len(sales):
+            self.show_error("Invalid sale index!", is_error=True)
+            return
+        
+        sale = sales[actual_index]
+        customer_name = sale.get("customer_name", "")
+        
+        # Create a dialog to edit the customer name (for now)
+        # You can expand this to edit individual products if needed
+        self.edit_customer_field = MDTextField(text=customer_name, hint_text="Customer Name")
+        
+        box = BoxLayout(orientation='vertical', spacing="10dp", size_hint_y=None, height="80dp")
+        box.add_widget(self.edit_customer_field)
+        
+        self.edit_sale_index = actual_index
+        
+        self.dialog = MDDialog(
+            title="Edit Sale",
+            type="custom",
+            content_cls=box,
+            buttons=[
+                MDFlatButton(text="Cancel", on_release=lambda x: self.dialog.dismiss()),
+                MDFlatButton(text="Save", on_release=lambda x: self.save_edited_sale())
+            ]
+        )
+        self.dialog.open()
+
+    def save_edited_sale(self):
+        """Save the edited sale."""
+        sales = self._read_daily_sales()
+        new_customer_name = self.edit_customer_field.text.strip()
+        
+        if not new_customer_name:
+            self.show_error("Customer name cannot be empty!", is_error=True)
+            return
+        
+        sales[self.edit_sale_index]["customer_name"] = new_customer_name
+        
+        path = self._daily_json_path()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(sales, f, indent=4, ensure_ascii=False)
+            
+            self.dialog.dismiss()
+            self.show_error("Sale updated successfully!", is_error=False)
+            self.load_history()  # Reload history
+        except Exception as e:
+            self.show_error(f"Error saving sale: {e}", is_error=True)
+
+    def delete_sale(self, sale_index):
+        """Delete a sale from history."""
+        sales = self._read_daily_sales()
+        
+        # Reverse to get correct index (since we reversed when displaying)
+        actual_index = len(sales) - 1 - sale_index
+        
+        if actual_index < 0 or actual_index >= len(sales):
+            self.show_error("Invalid sale index!", is_error=True)
+            return
+        
+        # Show confirmation dialog
+        self.dialog = MDDialog(
+            title="Delete Sale",
+            text="Are you sure you want to delete this sale?",
+            buttons=[
+                MDFlatButton(text="Cancel", on_release=lambda x: self.dialog.dismiss()),
+                MDFlatButton(text="Delete", on_release=lambda x: self.confirm_delete_sale(actual_index))
+            ]
+        )
+        self.dialog.open()
+
+    def confirm_delete_sale(self, actual_index):
+        """Confirm and delete the sale."""
+        sales = self._read_daily_sales()
+        del sales[actual_index]
+        
+        path = self._daily_json_path()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(sales, f, indent=4, ensure_ascii=False)
+            
+            self.dialog.dismiss()
+            self.show_error("Sale deleted successfully!", is_error=False)
+            self.load_history()  # Reload history
+        except Exception as e:
+            self.show_error(f"Error deleting sale: {e}", is_error=True)
         
     def load_theme(self):
         path = get_theme_path()
