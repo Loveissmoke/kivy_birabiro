@@ -201,25 +201,19 @@ ScreenManager:
             hint_text: "case"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
-            on_text:
-                root.case_text = self.text
-                root.on_change()
+            on_text: root.on_case_text(self.text)
         MDTextField:
             id: dozen
             hint_text: "dozen"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
-            on_text:
-                root.dozen_text = self.text
-                root.on_change()
+            on_text: root.on_dozen_text(self.text)
         MDTextField:
             id: pieces
             hint_text: "pieces"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
-            on_text:
-                root.pieces_text = self.text
-                root.on_change()
+            on_text: root.on_pieces_text(self.text)
     MDLabel:
         id: subtotal
         text: "Subtotal: 0.00 ETB"

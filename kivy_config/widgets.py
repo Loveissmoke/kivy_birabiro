@@ -26,13 +26,10 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
     subd_price = NumericProperty()
     selected_price = StringProperty()
     
-    case_text = StringProperty("")
-    dozen_text = StringProperty("")
-    pieces_text = StringProperty("")
+    # case_text = StringProperty("")
+    # dozen_text = StringProperty("")
+    # pieces_text = StringProperty("")
     rv_index = NumericProperty(0)
-    
-    # ✅ Add a flag to prevent on_change() from syncing back to rv.data during refresh
-    is_refreshing = False
     
     def refresh_view_attrs(self, rv, index, data):
         """Called when RecycleView rebinds this widget to new data."""
@@ -47,11 +44,17 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         self.subd_price = data.get("subd_price", 0)
         self.selected_price = data.get("selected_price", "retail")
 
-        # ✅ Sync TextInput values from data DIRECTLY (not via properties)
-        self.ids.case.text = data.get("case_text", "")
-        if "dozen" in self.ids:
-            self.ids.dozen.text = data.get("dozen_text", "")
-        self.ids.pieces.text = data.get("pieces_text", "")
+        # ✅ Sync TextInput values from data (CRITICAL - must reload from data)
+        # self.ids.case.text = data.get("case_text", "")
+        # self.ids.dozen.text = data.get("dozen_text", "")
+        # self.ids.pieces.text = data.get("pieces_text", "")
+
+        Clock.schedule_once(
+            lambda dt: self.load_inputs(data),
+            0
+        )
+
+
 
         # ✅ Adjust input visibility based on NEW case_size
         Clock.schedule_once(self.adjust_inputs, 0)
@@ -60,9 +63,14 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         Clock.schedule_once(lambda dt: self.on_change(), 0.1)
 
         return result
-        
 
     selected_price = StringProperty()
+
+    def load_inputs(self, data):
+        self.ids.case.text = data.get("case_text", "")
+        self.ids.dozen.text = data.get("dozen_text", "")
+        self.ids.pieces.text = data.get("pieces_text", "")
+
 
     def on_selected_price(self, *args):
         Clock.schedule_once(lambda dt: self.on_change(), 0)
@@ -112,6 +120,39 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
             self.ids.dozen.size_hint_x = None
             self.ids.dozen.width = 0
 
+    def on_case_text(self, text):
+        """Handle case input changes - save to correct data index immediately"""
+        if not hasattr(self, "rv") or self.rv is None:
+            return
+        if self.rv_index >= len(self.rv.data):
+            return
+        
+        # ✅ Update ONLY the correct index
+        self.rv.data[self.rv_index]["case_text"] = text
+        self.on_change()
+
+    def on_dozen_text(self, text):
+        """Handle dozen input changes - save to correct data index immediately"""
+        if not hasattr(self, "rv") or self.rv is None:
+            return
+        if self.rv_index >= len(self.rv.data):
+            return
+        
+        # ✅ Update ONLY the correct index
+        self.rv.data[self.rv_index]["dozen_text"] = text
+        self.on_change()
+
+    def on_pieces_text(self, text):
+        """Handle pieces input changes - save to correct data index immediately"""
+        if not hasattr(self, "rv") or self.rv is None:
+            return
+        if self.rv_index >= len(self.rv.data):
+            return
+        
+        # ✅ Update ONLY the correct index
+        self.rv.data[self.rv_index]["pieces_text"] = text
+        self.on_change()
+
     def on_change(self):
         # ✅ CRITICAL FIX: Get fresh data from rv.data using current index
         # This prevents stale index issues when RecycleView reuses widgets
@@ -144,17 +185,12 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         anim = Animation(opacity=0.3, duration=0.1) + Animation(opacity=1, duration=0.1)
         anim.start(self.ids.subtotal)
 
-        # ✅ ONLY update the correct index in rv.data
-        data["case_text"] = self.ids.case.text
-        data["dozen_text"] = self.ids.dozen.text
-        data["pieces_text"] = self.ids.pieces.text
-
         self.update_callback()
 
     def get_total(self):
-        case = safe_int(self.case_text)
-        pieces = safe_int(self.pieces_text)
-        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
+        case = safe_int(self.ids.case.text)
+        pieces = safe_int(self.ids.pieces.text)
+        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
 
         # Calculate total number of items
         total_items = (case * self.case_size) + (dozen * 12) + pieces
@@ -170,9 +206,9 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
             return 0
 
     def get_total_pieces(self):
-        case = safe_int(self.case_text)
-        pieces = safe_int(self.pieces_text)
-        dozen = safe_int(self.dozen_text) if self.case_size > 12 else 0
+        case = safe_int(self.ids.case.text)
+        pieces = safe_int(self.ids.pieces.text)
+        dozen = safe_int(self.ids.dozen.text) if self.case_size > 12 else 0
 
         return (case * self.case_size) + (dozen * 12) + pieces
 
@@ -214,12 +250,60 @@ class AdminItem(MDCard):
 class CustomerCard(MDCard):
     customer_name = StringProperty()
     total_text = StringProperty()
+    sale_index = NumericProperty(default=-1)
 
     # This will be the product_box container where products will be displayed
     product_box = StringProperty()
 
-    def __init__(self, **kwargs):
+    def __init__(self, edit_callback=None, delete_callback=None, **kwargs):
         super().__init__(**kwargs)
+        # Use regular attributes instead of Kivy properties
+        self.edit_callback = edit_callback or (lambda idx: None)
+        self.delete_callback = delete_callback or (lambda idx: None)
+        self.long_press_timeout = None
+        self.touch_start_time = None
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.touch_start_time = Clock.get_time()
+            self.long_press_timeout = Clock.schedule_once(
+                lambda dt: self.show_context_menu(), 0.5
+            )
+            return True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if self.long_press_timeout:
+            self.long_press_timeout.cancel()
+            self.long_press_timeout = None
+        return super().on_touch_up(touch)
+
+    def show_context_menu(self):
+        """Show a dialog with edit and delete options."""
+        from kivymd.uix.dialog import MDDialog
+        from kivymd.uix.button import MDFlatButton
+
+        self.dialog = MDDialog(
+            title="Options",
+            buttons=[
+                MDFlatButton(text="Edit", on_release=self.on_edit),
+                MDFlatButton(text="Delete", on_release=self.on_delete),
+                MDFlatButton(text="Cancel", on_release=lambda x: self.dialog.dismiss()),
+            ]
+        )
+        self.dialog.open()
+
+    def on_edit(self, *args):
+        """Handle edit action."""
+        if self.dialog:
+            self.dialog.dismiss()
+        self.edit_callback(self.sale_index)
+
+    def on_delete(self, *args):
+        """Handle delete action."""
+        if self.dialog:
+            self.dialog.dismiss()
+        self.delete_callback(self.sale_index)
 
     def build(self):
         # This is the layout where products will be dynamically added
