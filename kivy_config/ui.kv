@@ -141,7 +141,7 @@ ScreenManager:
                     MDTextField:
                         id: case_size
                         hint_text: "Case Size"
-                        input_filter: "int"
+                        input_filter: lambda text, from_undo: text if text.isdigit() else ""
                         multiline: False
                         input_type: "number"
                         size_hint_y: None
@@ -150,21 +150,24 @@ ScreenManager:
                     MDTextField:
                         id: retail_price
                         hint_text: "Retail Price"
-                        input_filter: "float"
+                        input_filter: lambda text, from_undo: ( text if text.isdigit() or (text == "." and "." not in self.text) else "")
+                        input_type: "number"
                         size_hint_y: None
                         height: dp(40)
 
                     MDTextField:
                         id: wholesale_price
                         hint_text: "Wholesale Price"
-                        input_filter: "float"
+                        input_filter: lambda text, from_undo: ( text if text.isdigit() or (text == "." and "." not in self.text) else "")
+                        input_type: "number"
                         size_hint_y: None
                         height: dp(40)
 
                     MDTextField:
                         id: subd_price
                         hint_text: "Subd Price"
-                        input_filter: "float"
+                        input_filter: lambda text, from_undo: ( text if text.isdigit() or (text == "." and "." not in self.text) else "")
+                        input_type: "number"
                         size_hint_y: None
                         height: dp(40)
 
@@ -196,18 +199,24 @@ ScreenManager:
         MDTextField:
             id: case
             hint_text: "case"
+            input_filter: lambda text, from_undo: text if text.isdigit() else ""
+            input_type: "number"
             on_text:
                 root.case_text = self.text
                 root.on_change()
         MDTextField:
             id: dozen
             hint_text: "dozen"
+            input_filter: lambda text, from_undo: text if text.isdigit() else ""
+            input_type: "number"
             on_text:
                 root.dozen_text = self.text
                 root.on_change()
         MDTextField:
             id: pieces
             hint_text: "pieces"
+            input_filter: lambda text, from_undo: text if text.isdigit() else ""
+            input_type: "number"
             on_text:
                 root.pieces_text = self.text
                 root.on_change()

@@ -73,6 +73,18 @@ class SalesApp(MDApp):
         # Loading the UI from the 'ui.kv' file
         return root
 
+    def safe_int(self, value):
+        try:
+            return int(value)
+        except:
+            return 0
+
+    def safe_float(self, value):
+        try:
+            return float(value)
+        except:
+            return 0.0
+
     def on_start(self):
         Clock.schedule_once(lambda dt: self.init_app(), 0)
         
@@ -461,10 +473,13 @@ class SalesApp(MDApp):
 
         for item in rv.data:
 
-            case = int(item.get("case_text") or 0)
-            dozen = int(item.get("dozen_text") or 0)
-            pieces = int(item.get("pieces_text") or 0)
-
+            # case = int(item.get("case_text") or 0)
+            # dozen = int(item.get("dozen_text") or 0)
+            # pieces = int(item.get("pieces_text") or 0)
+            case = self.safe_int(item.get("case_text"))
+            dozen = self.safe_int(item.get("dozen_text"))
+            pieces = self.safe_int(item.get("pieces_text"))
+            
             case_size = item["case_size"]
 
             total_pieces = (case * case_size) + (dozen * 12) + pieces
@@ -528,9 +543,13 @@ class SalesApp(MDApp):
         # READ DIRECTLY FROM rv.data
         for item in rv.data:
 
-            case = int(item.get("case_text") or 0)
-            dozen = int(item.get("dozen_text") or 0)
-            pieces = int(item.get("pieces_text") or 0)
+            # case = int(item.get("case_text") or 0)
+            # dozen = int(item.get("dozen_text") or 0)
+            # pieces = int(item.get("pieces_text") or 0)
+
+            case = self.safe_int(item.get("case_text"))
+            dozen = self.safe_int(item.get("dozen_text"))
+            pieces = self.safe_int(item.get("pieces_text"))
 
             case_size = item["case_size"]
 
@@ -683,7 +702,16 @@ class SalesApp(MDApp):
 
     def add_new_product(self, name, case_size, retail_price, wholesale_price, subd_price):
         if name and case_size and retail_price and wholesale_price and subd_price:
-            add_product(name, int(case_size), float(retail_price), float(wholesale_price), float(subd_price))
+            #add_product(name, int(case_size), float(retail_price), float(wholesale_price), float(subd_price))
+            
+            add_product(
+                name,
+                self.safe_int(case_size),
+                self.safe_float(retail_price),
+                self.safe_float(wholesale_price),
+                self.safe_float(subd_price)
+)
+            
             scr = self.root.get_screen("admin")
             scr.ids.name.text = ""
             scr.ids.case_size.text = ""
@@ -750,10 +778,16 @@ BoxLayout:
     def save_edit(self):
         # Get the updated values from the dialog fields
         name = self.n.text
-        case_size = int(self.c.text)
-        retail_price = float(self.retail.text)
-        wholesale_price = float(self.wholesale.text)
-        subd_price = float(self.subd.text)
+        
+        # case_size = int(self.c.text)
+        # retail_price = float(self.retail.text)
+        # wholesale_price = float(self.wholesale.text)
+        # subd_price = float(self.subd.text)
+        
+        case_size = self.safe_int(self.c.text)
+        retail_price = self.safe_float(self.retail.text)
+        wholesale_price = self.safe_float(self.wholesale.text)
+        subd_price = self.safe_float(self.subd.text)
 
         # Update the product in the database with new values
         update_product(self.edit_id, name, case_size, retail_price, wholesale_price, subd_price)
@@ -803,11 +837,11 @@ BoxLayout:
         if is_error:
             color = "Error"  # Red for error
             text_color = "Error"  # Red text for error
-            title = "Error"
+            #title = "Error"
         else:
             color = "Custom"  # Custom color for success
             text_color = "Primary"  # Green for success (Primary color)
-            title = "Success"
+            #title = "Success"
 
         # Create the label with either error or success message
         error_label = MDLabel(
@@ -824,7 +858,9 @@ BoxLayout:
 
         # Create a Popup to show the overlay message
         error_popup = Popup(
-            title=title,  # Set title based on whether it's an error or success
+            #title=title,  # Set title based on whether it's an error or success
+            title="",
+            separator_height=0,
             content=overlay,
             size_hint=(None, None),
             size=(self.root.width * 0.8, 100),  # Adjust size as needed

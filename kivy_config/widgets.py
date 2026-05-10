@@ -35,24 +35,29 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
     is_refreshing = False
     
     def refresh_view_attrs(self, rv, index, data):
+        """Called when RecycleView rebinds this widget to new data."""
         self.rv = rv
         self.rv_index = index
         result = super().refresh_view_attrs(rv, index, data)
 
-        # Set the flag to prevent on_change() from syncing
-        self.is_refreshing = True
-        
-        # Always sync the widget's TextInput from rv.data
+        # ✅ CRITICAL: Update ALL product properties FIRST before adjust_inputs()
+        self.case_size = data.get("case_size", 0)
+        self.retail_price = data.get("retail_price", 0)
+        self.wholesale_price = data.get("wholesale_price", 0)
+        self.subd_price = data.get("subd_price", 0)
+        self.selected_price = data.get("selected_price", "retail")
+
+        # ✅ Sync TextInput values from data
         self.ids.case.text = data.get("case_text", "")
         if "dozen" in self.ids:
             self.ids.dozen.text = data.get("dozen_text", "")
         self.ids.pieces.text = data.get("pieces_text", "")
 
-        # Update subtotal
-        self.on_change()
-        
-        # Reset the flag
-        self.is_refreshing = False
+        # ✅ Adjust input visibility based on NEW case_size
+        Clock.schedule_once(self.adjust_inputs, 0)
+
+        # ✅ Update subtotal with correct prices and case_size
+        Clock.schedule_once(lambda dt: self.on_change(), 0.1)
 
         return result
         
@@ -61,8 +66,6 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
 
     def on_selected_price(self, *args):
         Clock.schedule_once(lambda dt: self.on_change(), 0)
-
-
 
     def __init__(self, update_callback=None, **kwargs):
         self.update_callback = update_callback or (lambda: None)
