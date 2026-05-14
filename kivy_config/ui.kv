@@ -244,18 +244,45 @@ ScreenManager:
 
 <HistoryScreen>:
     name: "history"
+
     MDBoxLayout:
         orientation: "vertical"
+
         MDTopAppBar:
             title: "History"
             left_action_items: [["arrow-left", lambda x: app.switch_to_previous_screen()]]
+
+        # ADD THIS
+        MDBoxLayout:
+            size_hint_y: None
+            height: "60dp"
+            padding: "10dp"
+            spacing: "10dp"
+
+            MDRaisedButton:
+                text: "Select Date"
+                on_release: app.open_history_date_picker()
+
+            MDLabel:
+                id: history_date_label
+                text: "Today"
+                valign: "middle"
+
         ScrollView:
+
             MDBoxLayout:
                 id: history_list
                 orientation: "vertical"
                 adaptive_height: True
                 padding: dp(12)
                 spacing: dp(12)
+
+
+
+
+
+
+
 
 
 <CustomerCard>:

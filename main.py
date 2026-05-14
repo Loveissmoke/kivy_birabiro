@@ -284,45 +284,62 @@ class SalesApp(MDApp):
         
         
     def open_history(self):
-        # Switch to the HistoryScreen
         self.switch_screen("history")
-        self.load_history() 
 
-    def load_history(self):
+        # default = today
+        today = datetime.now().strftime("%d_%m_%Y")
+        self.selected_history_date = today
+
+        screen = self.root.get_screen("history")
+        screen.ids.history_date_label.text = today.replace("_", "/")
+
+        self.load_history(today)
+        
+        
+
+    def load_history(self, date_str=None):
+
+        if not date_str:
+            date_str = datetime.now().strftime("%d_%m_%Y")
+
         container = self.root.get_screen("history").ids.history_list
         container.clear_widgets()
 
-        sales = self._read_daily_sales()
+        sales = self._read_sales_by_date(date_str)
 
-        for sale_index, sale in enumerate(reversed(sales)):  # latest first
+        if not sales:
+            container.add_widget(
+                MDLabel(
+                    text="No sales found for selected date.",
+                    size_hint_y=None,
+                    height=30
+                )
+            )
+            return
+
+        for sale_index, sale in enumerate(reversed(sales)):
             customer = sale.get("customer_name", "Unknown")
-            price_type = sale.get("price_type", "Not set")  # Get the price type
+            price_type = sale.get("price_type", "Not set")
             products = sale.get("products", [])
 
             total = 0
 
-            # Create a new CustomerCard to display this sale
             card = CustomerCard(
-                customer_name=f"{customer} ({price_type.capitalize()})",  # Display customer name with price type
+                customer_name=f"{customer} ({price_type.capitalize()})",
                 total_text="",
-                sale_index=sale_index,  # Track the sale index
-                edit_callback=self.edit_sale,  # Set edit callback
-                delete_callback=self.delete_sale  # Set delete callback
+                sale_index=sale_index,
+                edit_callback=self.edit_sale,
+                delete_callback=self.delete_sale
             )
 
-            # Access product_box inside CustomerCard
             product_box = card.ids.product_box
 
-            # Add products to the product_box inside the CustomerCard
             for p in products:
                 name = p["name"]
                 pieces = p["pieces"]
                 price = p["price"]
-
-                # Get case size
                 case_size = p["case_size"]
 
-                # conversion
                 case = pieces // case_size
                 rem = pieces % case_size
                 dozen = rem // 12
@@ -331,12 +348,14 @@ class SalesApp(MDApp):
                 subtotal = pieces * price
                 total += subtotal
 
-                # Build clean text to display product details
                 parts = []
+
                 if case > 0:
                     parts.append(f"{case} CZ")
+
                 if dozen > 0:
                     parts.append(f"{dozen} DZ")
+
                 if pcs > 0:
                     parts.append(f"{pcs} PCS")
 
@@ -344,8 +363,6 @@ class SalesApp(MDApp):
 
                 text = f"• {name} — {qty_text} = {subtotal:.2f} ETB"
 
-                
-                # Add each product's details as a label to the product_box
                 product_box.add_widget(
                     MDLabel(
                         text=text,
@@ -357,6 +374,49 @@ class SalesApp(MDApp):
 
             card.total_text = f"Total: {total:.2f} ETB"
             container.add_widget(card)
+
+
+
+    def open_history_date_picker(self):
+        date_dialog = MDDatePicker()
+        date_dialog.bind(on_save=self.on_history_date_selected)
+        date_dialog.open()
+
+
+    def on_history_date_selected(self, instance, value, date_range):
+        selected_date = value.strftime("%d_%m_%Y")
+
+        self.selected_history_date = selected_date
+
+        screen = self.root.get_screen("history")
+        screen.ids.history_date_label.text = selected_date.replace("_", "/")
+
+        self.load_history(selected_date)
+        
+    def _daily_json_path_by_date(self, date_str):
+        filename = f".bk_{date_str}.json"
+        base = App.get_running_app().user_data_dir
+        return os.path.join(base, filename)
+
+
+    def _read_sales_by_date(self, date_str):
+        path = self._daily_json_path_by_date(date_str)
+
+        if not os.path.exists(path):
+            return []
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            if isinstance(data, list):
+                return data
+
+        except Exception as e:
+            print(f"Error reading sales data: {e}")
+
+        return []
+
 
     def edit_sale(self, sale_index):
         """Edit a sale from history."""
