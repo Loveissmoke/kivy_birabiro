@@ -420,7 +420,13 @@ class SalesApp(MDApp):
 
     def edit_sale(self, sale_index):
         """Edit a sale from history."""
-        sales = self._read_daily_sales()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        sales = self._read_sales_by_date(date_str)
         
         # Reverse to get correct index (since we reversed when displaying)
         actual_index = len(sales) - 1 - sale_index
@@ -454,7 +460,14 @@ class SalesApp(MDApp):
 
     def save_edited_sale(self):
         """Save the edited sale."""
-        sales = self._read_daily_sales()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        sales = self._read_sales_by_date(date_str)
+        
         new_customer_name = self.edit_customer_field.text.strip()
         
         if not new_customer_name:
@@ -463,20 +476,33 @@ class SalesApp(MDApp):
         
         sales[self.edit_sale_index]["customer_name"] = new_customer_name
         
-        path = self._daily_json_path()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        path = self._daily_json_path_by_date(date_str)
+        
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(sales, f, indent=4, ensure_ascii=False)
             
             self.dialog.dismiss()
             self.show_error("Sale updated successfully!", is_error=False)
-            self.load_history()  # Reload history
+            self.load_history(date_str)  # Reload history
         except Exception as e:
             self.show_error(f"Error saving sale: {e}", is_error=True)
 
     def delete_sale(self, sale_index):
         """Delete a sale from history."""
-        sales = self._read_daily_sales()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        sales = self._read_sales_by_date(date_str)
         
         # Reverse to get correct index (since we reversed when displaying)
         actual_index = len(sales) - 1 - sale_index
@@ -498,17 +524,31 @@ class SalesApp(MDApp):
 
     def confirm_delete_sale(self, actual_index):
         """Confirm and delete the sale."""
-        sales = self._read_daily_sales()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        sales = self._read_sales_by_date(date_str)
+        
         del sales[actual_index]
         
-        path = self._daily_json_path()
+        date_str = getattr(
+            self,
+            "selected_history_date",
+            datetime.now().strftime("%d_%m_%Y")
+        )
+
+        path = self._daily_json_path_by_date(date_str)
+        
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(sales, f, indent=4, ensure_ascii=False)
             
             self.dialog.dismiss()
             self.show_error("Sale deleted successfully!", is_error=False)
-            self.load_history()  # Reload history
+            self.load_history(date_str) # Reload history
         except Exception as e:
             self.show_error(f"Error deleting sale: {e}", is_error=True)
         
@@ -1306,7 +1346,23 @@ BoxLayout:
         )
         self.dialog.open()
         
-        
+    def on_resume(self):
+        Clock.schedule_once(self.refresh_sales_view, 0.2)
+        return True
+
+
+    def refresh_sales_view(self, *args):
+        try:
+            rv = self.root.get_screen("sales").ids.product_list
+
+            # force redraw
+            rv.refresh_from_data()
+
+            # update totals/subtotals again
+            Clock.schedule_once(lambda dt: self.update_total(), 0.1)
+
+        except Exception as e:
+            print("Resume refresh error:", e)
 
 
     # def load_theme(self):

@@ -49,22 +49,19 @@ class ProductCard(RecycleDataViewBehavior, MDCard):
         # self.ids.dozen.text = data.get("dozen_text", "")
         # self.ids.pieces.text = data.get("pieces_text", "")
 
-        Clock.schedule_once(
-            lambda dt: self.load_inputs(data),
-            0
-        )
+        Clock.unschedule(self.adjust_inputs)
+        Clock.unschedule(self.on_change)
 
-
-
-        # ✅ Adjust input visibility based on NEW case_size
-        Clock.schedule_once(self.adjust_inputs, 0)
-
-        # ✅ Update subtotal with correct prices and case_size
-        Clock.schedule_once(lambda dt: self.on_change(), 0.1)
+        Clock.schedule_once(lambda dt: self.load_inputs(data), -1)
+        Clock.schedule_once(self.adjust_inputs, -1)
+        Clock.schedule_once(lambda dt: self.on_change(), 0)
 
         return result
 
     selected_price = StringProperty()
+    
+    def on_parent(self, *args):
+        Clock.schedule_once(lambda dt: self.on_change(), 0)
 
     def load_inputs(self, data):
         self.ids.case.text = data.get("case_text", "")

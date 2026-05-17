@@ -192,28 +192,41 @@ ScreenManager:
     padding: dp(10)
     spacing: dp(8)
     elevation: 3
+
+    canvas.before:
+        Color:
+            rgba: app.theme_cls.bg_normal
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
     MDLabel:
         text: root.name
+
     MDBoxLayout:
         spacing: dp(8)
+
         MDTextField:
             id: case
             hint_text: "case"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
             on_text: root.on_case_text(self.text)
+
         MDTextField:
             id: dozen
             hint_text: "dozen"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
             on_text: root.on_dozen_text(self.text)
+
         MDTextField:
             id: pieces
             hint_text: "pieces"
             input_filter: lambda text, from_undo: text if text.isdigit() else ""
             input_type: "number"
             on_text: root.on_pieces_text(self.text)
+
     MDLabel:
         id: subtotal
         text: "Subtotal: 0.00 ETB"
