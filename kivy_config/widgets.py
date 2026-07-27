@@ -323,7 +323,7 @@ BoxLayout:
         return self.product_box
 
     def add_product(self, name, qty, subtotal):
-        from kivymd.uix.label import MDLabel
+
         # Create a label with the product's info and add it to product_box
         self.product_box.add_widget(
             MDLabel(

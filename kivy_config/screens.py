@@ -15,4 +15,5 @@ class ReportScreen(MDScreen):
 class AnalyticsScreen(MDScreen):
     pass
     
-
+class LoadingScreen(MDScreen):
+    pass

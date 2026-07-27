@@ -32,6 +32,7 @@ def db():
 
 
 def init_db():
+	
     conn = db()
     c = conn.cursor()
 
@@ -62,6 +63,8 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
 
 
 def check_password(p):

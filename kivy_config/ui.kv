@@ -4,6 +4,8 @@ ScreenManager:
     HistoryScreen:
     ReportScreen:
     AnalyticsScreen:
+    LoadingScreen:
+        name: "loading"
     
     
 
@@ -85,10 +87,10 @@ ScreenManager:
                             app.switch_screen("analytics")
                             
                     OneLineListItem:
-                        text: "Sync"
+                        text: "Backup & Sync"
                         on_release:
                             nav_drawer.set_state("close")
-                            app.sync_data()
+                            app.open_sync_menu()
                             
                     OneLineListItem:
                         text: "Switch Price Type"
@@ -428,3 +430,20 @@ ScreenManager:
                     spacing: "10dp"
                     size_hint_y: None
                     height: self.minimum_height
+
+
+<LoadingScreen>:
+    name: "loading"
+
+    MDFloatLayout:
+
+        MDSpinner:
+            size_hint: None, None
+            size: "60dp", "60dp"
+            pos_hint: {"center_x": .5, "center_y": .55}
+            active: True
+
+        MDLabel:
+            text: "Loading products..."
+            halign: "center"
+            pos_hint: {"center_y": .42}

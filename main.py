@@ -1,45 +1,45 @@
 import sqlite3
-import hashlib
+# ~ import hashlib
 import json
 import os
 from kivy.app import App
 from datetime import datetime
 
 from kivy.lang import Builder
-from kivy.properties import StringProperty, NumericProperty
-from kivy.animation import Animation
+from kivy.properties import StringProperty
+# ~ from kivy.animation import Animation
 from kivy.clock import Clock
 
 from kivymd.uix.textfield import MDTextField
 
 from kivymd.app import MDApp
-from kivymd.uix.card import MDCard
-from kivymd.uix.screen import MDScreen
+# ~ from kivymd.uix.card import MDCard
+# ~ from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import MDDialog
-from kivymd.uix.button import MDFlatButton
+# ~ from kivymd.uix.button import MDFlatButton
 from kivymd.uix.label import MDLabel
 from kivy.uix.boxlayout import BoxLayout
-from kivymd.uix.menu import MDDropdownMenu
-from kivymd.uix.list import OneLineListItem 
-from kivymd.uix.list import OneLineAvatarIconListItem, IconLeftWidget
-from kivy.metrics import dp
+# ~ from kivymd.uix.menu import MDDropdownMenu
+# ~ from kivymd.uix.list import OneLineListItem 
+# ~ from kivymd.uix.list import IconLeftWidget
+# ~ from kivy.metrics import dp
 from kivymd.uix.pickers import MDDatePicker
-from kivymd.uix.chip import MDChip
+# ~ from kivymd.uix.chip import MDChip
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDRaisedButton, MDFlatButton
 from kivy.uix.scrollview import ScrollView
 
+from pathlib import Path
 
 
 
-
-from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen, AnalyticsScreen
+from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen, AnalyticsScreen, LoadingScreen
 from kivy_config.widgets import ProductCard, AdminItem, CustomerCard
 from kivy_config.helpers import init_db, get_products, add_product, update_product, delete_product_db, check_password, update_password, get_theme_path
 
 from kivy.core.window import Window
 
-from kivy.config import Config
+# ~ from kivy.config import Config
 # Config.set('kivy', 'window_icon', 'icon.png')
 
 Window.softinput_mode = "below_target"
@@ -68,6 +68,8 @@ class SalesApp(MDApp):
         self.screen_history = []
         root = Builder.load_file('kivy_config/ui.kv')
         
+        root.current = "loading"
+        
         Window.bind(on_keyboard=self.on_back_button)
 
         # Loading the UI from the 'ui.kv' file
@@ -86,28 +88,58 @@ class SalesApp(MDApp):
             return 0.0
 
     def on_start(self):
-        Clock.schedule_once(lambda dt: self.init_app(), 0)
+
+        self.root.current = "loading"
+
+        Clock.schedule_once(lambda dt: self.init_app(), 0.5)
         
+        
+
     def init_app(self):
+
         self.load_theme()
-        init_db()
-        self.load_sales()
-        self.load_admin()
+
+        Clock.schedule_once(self._load_database, 0.1)
         
         if not hasattr(self, 'selected_price_type'):
             self.selected_price_type = "retail" 
-            
+
+
+    def _load_database(self, dt):
+
+        init_db()
+
+        Clock.schedule_once(self._load_sales_screen, 0.1)
+
+
+    def _load_sales_screen(self, dt):
+
+        self.load_sales()
+
+        Clock.schedule_once(self._load_admin_screen, 0.1)
+
+
+    def _load_admin_screen(self, dt):
+
+        self.load_admin()
+
+        Clock.schedule_once(self._finish_loading, 0.1)
+
+
+    def _finish_loading(self, dt):
+
+        self.switch_screen("sales")
     def switch_screen(self, screen_name):
         current = self.root.current
         #to avoid duplicate
-        if current != screen_name:
+        if current != screen_name  and current != "loading":
             self.screen_history.append(current)
         self.root.current = screen_name
         
         
     def on_back_button(self, window, key, *arg):
         if key == 27:
-            if self.screen_history:
+            if self.screen_history  and self.screen_history[-1] == "loading":
                 previous = self.screen_history.pop()
                 
                 self.root.current = previous
@@ -318,6 +350,7 @@ class SalesApp(MDApp):
             return
 
         for sale_index, sale in enumerate(reversed(sales)):
+
             customer = sale.get("customer_name", "Unknown")
             price_type = sale.get("price_type", "Not set")
             products = sale.get("products", [])
@@ -334,7 +367,11 @@ class SalesApp(MDApp):
 
             product_box = card.ids.product_box
 
+            # ✅ Create ONE text block instead of many labels
+            product_lines = []
+
             for p in products:
+
                 name = p["name"]
                 pieces = p["pieces"]
                 price = p["price"]
@@ -361,18 +398,21 @@ class SalesApp(MDApp):
 
                 qty_text = ", ".join(parts) if parts else "0"
 
-                text = f"• {name} — {qty_text} = {subtotal:.2f} ETB"
-
-                product_box.add_widget(
-                    MDLabel(
-                        text=text,
-                        font_style="Body2",
-                        size_hint_y=None,
-                        height=20
-                    )
+                product_lines.append(
+                    f"• {name} — {qty_text} = {subtotal:.2f} ETB"
                 )
 
+            # ✅ Only ONE widget added
+            product_box.add_widget(
+                MDLabel(
+                    text="\n".join(product_lines),
+                    adaptive_height=True,
+                    theme_text_color="Secondary"
+                )
+            )
+
             card.total_text = f"Total: {total:.2f} ETB"
+
             container.add_widget(card)
 
 
@@ -1363,6 +1403,247 @@ BoxLayout:
 
         except Exception as e:
             print("Resume refresh error:", e)
+            
+
+
+
+
+
+    def backup_data(self):
+        """Backup app data to /storage/emulated/0/Download/BiraBiroBackups"""
+        import shutil
+
+        try:
+            source_dir = App.get_running_app().user_data_dir
+            
+            # ✅ Android path: /storage/emulated/0/Download/BiraBiroBackups
+            backup_root = "/storage/emulated/0/Download/BiraBiroBackups"
+            os.makedirs(backup_root, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
+            backup_dir = os.path.join(backup_root, f"backup_{timestamp}")
+            os.makedirs(backup_dir, exist_ok=True)
+
+            # Backup DB file
+            db_path = os.path.join(source_dir, "products.db")
+            if os.path.exists(db_path):
+                shutil.copy2(db_path, os.path.join(backup_dir, "products.db"))
+                print(f"Backed up: products.db")
+
+            # Backup JSON files (.bk_*.json)
+            for file in os.listdir(source_dir):
+                if file.startswith(".bk_") and file.endswith(".json"):
+                    shutil.copy2(
+                        os.path.join(source_dir, file),
+                        os.path.join(backup_dir, file)
+                    )
+                    print(f"Backed up: {file}")
+
+            self.show_error(f"✅ Backup completed!\nFolder: backup_{timestamp}", False)
+
+        except Exception as e:
+            self.show_error(f"❌ Backup failed: {str(e)}", True)
+            print(f"Backup error: {e}")
+
+
+    def restore_backup(self):
+        import os
+        import shutil
+        import sqlite3
+
+        try:
+            backup_root = "/storage/emulated/0/Download/BiraBiroBackups"
+
+            if not os.path.exists(backup_root):
+                self.show_error("Backup folder not found!", True)
+                return
+
+            backups = [
+                os.path.join(backup_root, f)
+                for f in os.listdir(backup_root)
+                if f.startswith("backup_")
+                and os.path.isdir(os.path.join(backup_root, f))
+            ]
+
+            if not backups:
+                self.show_error("No backups found!", True)
+                return
+
+            latest_backup = max(backups, key=os.path.getmtime)
+
+            app_dir = App.get_running_app().user_data_dir
+
+            os.makedirs(app_dir, exist_ok=True)
+
+            # -------------------------------------------------
+            # Restore JSON files
+            # -------------------------------------------------
+
+            for file in os.listdir(latest_backup):
+
+                if file.startswith(".bk_") and file.endswith(".json"):
+
+                    shutil.copy2(
+                        os.path.join(latest_backup, file),
+                        os.path.join(app_dir, file)
+                    )
+
+            # -------------------------------------------------
+            # Import database instead of replacing it
+            # -------------------------------------------------
+
+            backup_db = os.path.join(latest_backup, "products.db")
+
+            if os.path.exists(backup_db):
+
+                current_db = os.path.join(app_dir, "products.db")
+
+                backup_conn = sqlite3.connect(backup_db)
+                current_conn = sqlite3.connect(current_db)
+
+                backup_cur = backup_conn.cursor()
+                current_cur = current_conn.cursor()
+
+                # remove existing products
+                current_cur.execute("DELETE FROM products")
+
+                # copy products
+                backup_cur.execute("""
+                    SELECT
+                        name,
+                        case_size,
+                        retail_price,
+                        wholesale_price,
+                        subd_price
+                    FROM products
+                """)
+
+                rows = backup_cur.fetchall()
+
+                current_cur.executemany("""
+                    INSERT INTO products(
+                        name,
+                        case_size,
+                        retail_price,
+                        wholesale_price,
+                        subd_price
+                    )
+                    VALUES(?,?,?,?,?)
+                """, rows)
+
+                # restore admin password
+                current_cur.execute("DELETE FROM admin")
+
+                backup_cur.execute("SELECT id,password FROM admin")
+
+                admins = backup_cur.fetchall()
+
+                current_cur.executemany(
+                    "INSERT INTO admin VALUES(?,?)",
+                    admins
+                )
+
+                current_conn.commit()
+
+                backup_conn.close()
+                current_conn.close()
+
+            self.show_error("Restore completed!", False)
+
+            Clock.schedule_once(
+                self._reload_after_restore,
+                0.5
+            )
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.show_error(str(e), True)
+
+
+    def _reload_after_restore(self, dt):
+
+        init_db()
+
+        self.load_sales()
+
+        self.load_admin()
+
+        today = datetime.now().strftime("%d_%m_%Y")
+
+        self.selected_history_date = today
+
+        self.load_history(today)
+
+        self.show_error(
+            "Data restored successfully!",
+            False
+        )
+
+
+
+    def open_sync_menu(self):
+        """Show backup/restore menu"""
+        content = MDBoxLayout(
+            orientation="vertical",
+            spacing="10dp",
+            padding="10dp",
+            size_hint_y=None,
+            height="240dp",
+        )
+
+        self.sync_dialog = MDDialog(
+            title="Data Options",
+            type="custom",
+            content_cls=content,
+            size_hint=(0.85, None),
+        )
+
+        content.add_widget(
+            MDRaisedButton(
+                text="BACKUP",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: [self.backup_data(), self.sync_dialog.dismiss()]
+            )
+        )
+
+        content.add_widget(
+            MDRaisedButton(
+                text="RESTORE",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: [self.restore_backup(), self.sync_dialog.dismiss()]
+            )
+        )
+
+        content.add_widget(
+            MDRaisedButton(
+                text="SYNC (Coming Soon)",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: [
+                    self.show_error("☁️ Cloud sync coming soon!", False),
+                    self.sync_dialog.dismiss()
+                ]
+            )
+        )
+
+        content.add_widget(
+            MDRaisedButton(
+                text="CLOSE",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: self.sync_dialog.dismiss()
+            )
+        )
+
+        self.sync_dialog.open()
+
+
+    def sync_data(self):
+        """Placeholder for future cloud sync - currently just opens menu"""
+        self.open_sync_menu()
 
 
     # def load_theme(self):
