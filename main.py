@@ -131,39 +131,45 @@ class SalesApp(MDApp):
 
 
     def _finish_loading(self, dt):
-
         self.switch_screen("sales")
+        
     def switch_screen(self, screen_name):
         current = self.root.current
-        #to avoid duplicate
-        if current != screen_name  and current != "loading":
+        # Don't save loading in history
+        if current != screen_name and current != "loading":
             self.screen_history.append(current)
         self.root.current = screen_name
         
         
     def on_back_button(self, window, key, *arg):
         if key == 27:
-            if self.screen_history  and self.screen_history[-1] == "loading":
+            if self.screen_history:
                 previous = self.screen_history.pop()
-                
-                self.root.current = previous
-                
+                # Never go back to loading
+                if previous == "loading":
+                    return self.on_back_button(window, key, *arg)
+                if previous == "admin":
+                    self.ask_password()
+                else:
+                    self.root.current = previous
                 return True
+            # No history -> allow Android to close the app
+            return False
+
         return False
         
         
     def switch_to_previous_screen(self):
         """Navigate to the previous screen in the history stack."""
         if self.screen_history:
-            previous_screen = self.screen_history.pop()  # Get the last screen from history
-            
+            previous_screen = self.screen_history.pop()
             if previous_screen == "admin":
-                # If going back to AdminScreen, ask for the password again
+                # Going back to AdminScreen requires password
                 self.ask_password()
             else:
-                self.root.current = previous_screen  # Switch to that screen
+                self.root.current = previous_screen
         else:
-            self.switch_screen("sales") 
+            self.root.current = "sales"
 
     def _daily_json_path(self):
         date_str = datetime.now().strftime("%d_%m_%Y")
