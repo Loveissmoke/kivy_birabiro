@@ -1581,13 +1581,22 @@ BoxLayout:
 
         content.add_widget(
             MDRaisedButton(
-                text="BACKUP",
+                text="BACKUP PRODUCT",
                 size_hint_y=None,
                 height="50dp",
                 on_release=lambda x: [self.backup_data(), self.sync_dialog.dismiss()]
             )
         )
 
+
+        content.add_widget(
+            MDRaisedButton(
+                text="BACKUP HISTORY",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: [self.backup_history(), self.sync_dialog.dismiss()]
+            )
+        )
         content.add_widget(
             MDRaisedButton(
                 text="RESTORE PRODUCTS",
@@ -1603,14 +1612,12 @@ BoxLayout:
         
         content.add_widget(
             MDRaisedButton(
-                text="Restore Backup History",
+                text="RESTORE HISTORY FROM BACKUPS",
                 size_hint_y=None,
                 height="50dp",
-                on_release=lambda x: [ self.pick_history_backup(), self.sync_dialog.dismiss()]
+                on_release=lambda x: [ self.open_restore_history_menu(), self.sync_dialog.dismiss() ]
             )
         )
-
-
 
         content.add_widget(
             MDRaisedButton(
@@ -1661,40 +1668,238 @@ BoxLayout:
 
         self.restore_backup(private_file)
 
-    def pick_history_backup(self):
-        self.chooser = Chooser(self.on_history_backup_selected)
-        self.chooser.choose_content("application/json")
+    # def pick_history_backup(self):
+        # self.chooser = Chooser(self.on_history_backup_selected)
+        # self.chooser.choose_content("application/json")
 
 
-    def on_history_backup_selected(self, path):
-        if path:
-            print("Selected:", path)
+    # def on_history_backup_selected(self, path):
+        # if path:
+            # print("Selected:", path)
 
-            if path.lower().endswith(".json"):
-                print("JSON backup selected")
-            else:
-                print("Please select a JSON backup file")
+            # if path.lower().endswith(".json"):
+                # print("JSON backup selected")
+            # else:
+                # print("Please select a JSON backup file")
             
         
 
-    def restore_history(self, filename):
-        backup_dir = os.path.join(
-            App.get_running_app().user_data_dir,
-            "backups"
+    # def restore_history(self, filename):
+        # backup_dir = os.path.join(
+            # App.get_running_app().user_data_dir,
+            # "backups"
+        # )
+
+        # path = os.path.join(backup_dir, filename)
+
+        # with open(path, "r", encoding="utf-8") as f:
+            # history = json.load(f)
+
+        # self.history = history
+
+        # self.save_history()
+
+        # self.load_history()
+        
+    def backup_history(self):
+        """Copy all history JSON files (.bk_*.json and bk_*.json) from user_data_dir
+        into /storage/emulated/0/Download/BiraBiroBackups/backup_<timestamp>/history"""
+        import shutil
+
+        try:
+            source_dir = App.get_running_app().user_data_dir
+            backup_root = "/storage/emulated/0/Download/BiraBiroBackups"
+            os.makedirs(backup_root, exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
+            backup_dir = os.path.join(backup_root, f"backup_{timestamp}")
+            os.makedirs(backup_dir, exist_ok=True)
+
+            history_dir = os.path.join(backup_dir, "history")
+            os.makedirs(history_dir, exist_ok=True)
+
+            copied = 0
+            for fname in os.listdir(source_dir):
+                # Accept both hidden (.bk_*.json) and non-hidden (bk_*.json) naming
+                if (fname.startswith(".bk_") or fname.startswith("bk_")) and fname.endswith(".json"):
+                    src = os.path.join(source_dir, fname)
+                    dst = os.path.join(history_dir, fname)
+                    try:
+                        shutil.copy2(src, dst)
+                        copied += 1
+                    except Exception as e:
+                        print(f"Failed to copy {src}: {e}")
+
+            if copied == 0:
+                self.show_error("No history files found to backup.", True)
+            else:
+                self.show_error(f"✅ History backup completed! {copied} files\nFolder: backup_{timestamp}", False)
+
+        except Exception as e:
+            self.show_error(f"❌ History backup failed: {str(e)}", True)
+            print(f"History backup error: {e}")       
+
+
+
+
+    def open_restore_history_menu(self):
+        """Show available backup folders from Download/BiraBiroBackups for the user to pick."""
+        backup_root = "/storage/emulated/0/Download/BiraBiroBackups"
+        if not os.path.exists(backup_root):
+            self.show_error("No backups found in Download/BiraBiroBackups.", True)
+            return
+
+        # list dirs sorted newest first
+        dirs = sorted(
+            [d for d in os.listdir(backup_root) if os.path.isdir(os.path.join(backup_root, d))],
+            reverse=True
         )
 
-        path = os.path.join(backup_dir, filename)
+        if not dirs:
+            self.show_error("No backup folders found.", True)
+            return
 
-        with open(path, "r", encoding="utf-8") as f:
-            history = json.load(f)
+        from kivymd.uix.scrollview import ScrollView
+        from kivymd.uix.list import OneLineListItem
 
-        self.history = history
+        content = MDBoxLayout(orientation="vertical", spacing="4dp", padding="4dp", size_hint_y=None)
+        content.height = min(56 * len(dirs) + 20, 400)
 
-        self.save_history()
+        for d in dirs:
+            btn = OneLineListItem(text=d, on_release=lambda x, dd=d: self._show_backup_files(os.path.join(backup_root, dd)))
+            content.add_widget(btn)
 
-        self.load_history()
-        
-        
+        self.restore_backup_dialog = MDDialog(
+            title="Select backup folder",
+            type="custom",
+            content_cls=content,
+            size_hint=(0.9, None)
+        )
+        self.restore_backup_dialog.open()
+
+    def _show_backup_files(self, backup_dir):
+        """List history files present in backup_dir (or backup_dir/history) and allow restore single/all."""
+        # close previous dialog if open
+        if hasattr(self, "restore_backup_dialog") and getattr(self, "restore_backup_dialog", None):
+            try:
+                self.restore_backup_dialog.dismiss()
+            except:
+                pass
+
+        hist_dir = os.path.join(backup_dir, "history")
+        base = hist_dir if os.path.exists(hist_dir) else backup_dir
+
+        files = []
+        for f in os.listdir(base):
+            if f.endswith(".json") and (f.startswith("bk_") or f.startswith(".bk_")):
+                files.append(os.path.join(base, f))
+
+        if not files:
+            self.show_error("No history files found in selected backup.", True)
+            return
+
+        from kivymd.uix.list import OneLineListItem
+        content = MDBoxLayout(orientation="vertical", spacing="4dp", padding="4dp", size_hint_y=None)
+        content.height = min(56 * len(files) + 80, 500)
+
+        for fp in files:
+            fname = os.path.basename(fp)
+            item = OneLineListItem(text=fname, on_release=lambda x, p=fp: self._confirm_restore_single(p))
+            content.add_widget(item)
+
+        # buttons area (Restore All + Cancel)
+        btn_box = MDBoxLayout(size_hint_y=None, height="60dp", spacing="8dp", padding=("8dp", "8dp"))
+        btn_box.add_widget(
+            MDRaisedButton(text="Restore All", on_release=lambda x, paths=files: [self._restore_history_files(paths), self._close_restore_dialog()])
+        )
+        btn_box.add_widget(
+            MDRaisedButton(text="Cancel", on_release=lambda x: self._close_restore_dialog())
+        )
+
+        content.add_widget(btn_box)
+
+        self.restore_files_dialog = MDDialog(
+            title=f"Files in {os.path.basename(backup_dir)}",
+            type="custom",
+            content_cls=content,
+            size_hint=(0.95, None)
+        )
+        self.restore_files_dialog.open()
+
+    def _confirm_restore_single(self, file_path):
+        """Ask user to confirm restoring a single file."""
+        self.confirm_dialog = MDDialog(
+            title="Restore History File",
+            text=f"Restore {os.path.basename(file_path)} ?\nThis will overwrite any existing file with the same name.",
+            buttons=[
+                MDFlatButton(text="Cancel", on_release=lambda x: self.confirm_dialog.dismiss()),
+                MDFlatButton(text="Restore", on_release=lambda x, p=file_path: [self.confirm_dialog.dismiss(), self._restore_history_files([p]), self._close_restore_dialog()])
+            ]
+        )
+        self.confirm_dialog.open()
+
+    def _close_restore_dialog(self):
+        try:
+            if getattr(self, "restore_files_dialog", None):
+                self.restore_files_dialog.dismiss()
+        except:
+            pass
+        try:
+            if getattr(self, "restore_backup_dialog", None):
+                self.restore_backup_dialog.dismiss()
+        except:
+            pass
+
+    def _restore_history_files(self, file_paths):
+        """Copy the selected history JSON files into the user_data_dir."""
+        import shutil
+        copied = 0
+        dest_base = App.get_running_app().user_data_dir
+
+        for src in file_paths:
+            try:
+                dst = os.path.join(dest_base, os.path.basename(src))
+                shutil.copy2(src, dst)
+                copied += 1
+            except Exception as e:
+                print(f"Failed to restore {src}: {e}")
+
+        if copied == 0:
+            self.show_error("No files restored.", True)
+            return
+
+        # If a single file was restored and it follows the daily naming, load that date
+        if len(file_paths) == 1:
+            fn = os.path.basename(file_paths[0])
+            # Expecting names like .bk_DD_MM_YYYY.json or bk_DD_MM_YYYY.json
+            try:
+                name = fn.replace(".json", "").lstrip(".")
+                if name.startswith("bk_"):
+                    date_str = name.replace("bk_", "")
+                    # Update selected_history_date and reload
+                    self.selected_history_date = date_str
+                    screen = self.root.get_screen("history")
+                    screen.ids.history_date_label.text = date_str.replace("_", "/")
+                    self.load_history(date_str)
+            except Exception:
+                pass
+        else:
+            # multiple files restored - refresh current history view (today or selected)
+            try:
+                date_str = getattr(self, "selected_history_date", None)
+                if date_str:
+                    self.load_history(date_str)
+                else:
+                    self.load_history()
+            except:
+                pass
+
+        self.show_error(f"✅ Restored {copied} file(s).", False)
+
+
+
+
+
     # def load_theme(self):
         # path = get_theme_path()
 

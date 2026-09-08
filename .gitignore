@@ -3,6 +3,8 @@
 
 !main.py
 
+!buildozer.spec
+
 !kivy_config/
 !kivy_config/**
 
