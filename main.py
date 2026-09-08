@@ -32,6 +32,10 @@ from kivy.uix.scrollview import ScrollView
 from pathlib import Path
 
 
+from androidstorage4kivy import Chooser, SharedStorage
+from kivy.clock import Clock
+from kivy.app import App
+
 
 from kivy_config.screens import SalesScreen, AdminScreen, HistoryScreen, ReportScreen, AnalyticsScreen, LoadingScreen
 from kivy_config.widgets import ProductCard, AdminItem, CustomerCard
@@ -1432,7 +1436,7 @@ BoxLayout:
 
             # Backup JSON files (.bk_*.json)
             for file in os.listdir(source_dir):
-                if file.startswith(".bk_") and file.endswith(".json"):
+                if file.startswith("bk_") and file.endswith(".json"):
                     shutil.copy2(
                         os.path.join(source_dir, file),
                         os.path.join(backup_dir, file)
@@ -1446,120 +1450,90 @@ BoxLayout:
             print(f"Backup error: {e}")
 
 
-    def restore_backup(self):
-        import os
-        import shutil
+    def restore_backup(self, backup_db):
+
         import sqlite3
+        import os
 
         try:
-            backup_root = "/storage/emulated/0/Download/BiraBiroBackups"
-
-            if not os.path.exists(backup_root):
-                self.show_error("Backup folder not found!", True)
-                return
-
-            backups = [
-                os.path.join(backup_root, f)
-                for f in os.listdir(backup_root)
-                if f.startswith("backup_")
-                and os.path.isdir(os.path.join(backup_root, f))
-            ]
-
-            if not backups:
-                self.show_error("No backups found!", True)
-                return
-
-            latest_backup = max(backups, key=os.path.getmtime)
 
             app_dir = App.get_running_app().user_data_dir
 
-            os.makedirs(app_dir, exist_ok=True)
+            current_db = os.path.join(
+                app_dir,
+                "products.db"
+            )
 
-            # -------------------------------------------------
-            # Restore JSON files
-            # -------------------------------------------------
+            init_db()
 
-            for file in os.listdir(latest_backup):
+            backup_conn = sqlite3.connect(backup_db)
+            current_conn = sqlite3.connect(current_db)
 
-                if file.startswith(".bk_") and file.endswith(".json"):
+            backup_cur = backup_conn.cursor()
+            current_cur = current_conn.cursor()
 
-                    shutil.copy2(
-                        os.path.join(latest_backup, file),
-                        os.path.join(app_dir, file)
-                    )
+            current_cur.execute("DELETE FROM products")
 
-            # -------------------------------------------------
-            # Import database instead of replacing it
-            # -------------------------------------------------
+            backup_cur.execute("""
+                SELECT
+                    name,
+                    case_size,
+                    retail_price,
+                    wholesale_price,
+                    subd_price
+                FROM products
+            """)
 
-            backup_db = os.path.join(latest_backup, "products.db")
+            rows = backup_cur.fetchall()
 
-            if os.path.exists(backup_db):
+            current_cur.executemany("""
+                INSERT INTO products(
+                    name,
+                    case_size,
+                    retail_price,
+                    wholesale_price,
+                    subd_price
+                )
+                VALUES(?,?,?,?,?)
+            """, rows)
 
-                current_db = os.path.join(app_dir, "products.db")
+            try:
 
-                backup_conn = sqlite3.connect(backup_db)
-                current_conn = sqlite3.connect(current_db)
-
-                backup_cur = backup_conn.cursor()
-                current_cur = current_conn.cursor()
-
-                # remove existing products
-                current_cur.execute("DELETE FROM products")
-
-                # copy products
-                backup_cur.execute("""
-                    SELECT
-                        name,
-                        case_size,
-                        retail_price,
-                        wholesale_price,
-                        subd_price
-                    FROM products
-                """)
-
-                rows = backup_cur.fetchall()
-
-                current_cur.executemany("""
-                    INSERT INTO products(
-                        name,
-                        case_size,
-                        retail_price,
-                        wholesale_price,
-                        subd_price
-                    )
-                    VALUES(?,?,?,?,?)
-                """, rows)
-
-                # restore admin password
                 current_cur.execute("DELETE FROM admin")
 
-                backup_cur.execute("SELECT id,password FROM admin")
-
-                admins = backup_cur.fetchall()
+                backup_cur.execute(
+                    "SELECT id,password FROM admin"
+                )
 
                 current_cur.executemany(
                     "INSERT INTO admin VALUES(?,?)",
-                    admins
+                    backup_cur.fetchall()
                 )
 
-                current_conn.commit()
+            except Exception:
+                pass
 
-                backup_conn.close()
-                current_conn.close()
+            current_conn.commit()
 
-            self.show_error("Restore completed!", False)
+            backup_conn.close()
+            current_conn.close()
 
             Clock.schedule_once(
                 self._reload_after_restore,
                 0.5
             )
 
+            self.show_error(
+                "Products restored successfully.",
+                False
+            )
+
         except Exception as e:
+
             import traceback
             traceback.print_exc()
-            self.show_error(str(e), True)
 
+            self.show_error(str(e), True)
 
     def _reload_after_restore(self, dt):
 
@@ -1610,12 +1584,27 @@ BoxLayout:
 
         content.add_widget(
             MDRaisedButton(
-                text="RESTORE",
+                text="RESTORE PRODUCTS",
                 size_hint_y=None,
                 height="50dp",
-                on_release=lambda x: [self.restore_backup(), self.sync_dialog.dismiss()]
+                on_release=lambda x: [
+                    self.pick_product_backup(),
+                    self.sync_dialog.dismiss()
+                ]
             )
         )
+        
+        
+        content.add_widget(
+            MDRaisedButton(
+                text="Restore Backup History",
+                size_hint_y=None,
+                height="50dp",
+                on_release=lambda x: [ self.pick_history_backup(), self.sync_dialog.dismiss()]
+            )
+        )
+
+
 
         content.add_widget(
             MDRaisedButton(
@@ -1644,8 +1633,62 @@ BoxLayout:
     def sync_data(self):
         """Placeholder for future cloud sync - currently just opens menu"""
         self.open_sync_menu()
+        
+        
+        
+        
+        
+        
 
 
+    def pick_product_backup(self):
+        chooser = Chooser(self.on_product_selected)
+        chooser.choose_content("*/*")
+
+    def on_product_selected(self, shared_file_list):
+        if not shared_file_list:
+            return
+
+        ss = SharedStorage()
+
+        private_file = ss.copy_from_shared(shared_file_list[0])
+
+        self.restore_backup(private_file)
+
+    def pick_history_backup(self):
+        self.chooser = Chooser(self.on_history_backup_selected)
+        self.chooser.choose_content("application/json")
+
+
+    def on_history_backup_selected(self, path):
+        if path:
+            print("Selected:", path)
+
+            if path.lower().endswith(".json"):
+                print("JSON backup selected")
+            else:
+                print("Please select a JSON backup file")
+            
+        
+
+    def restore_history(self, filename):
+        backup_dir = os.path.join(
+            App.get_running_app().user_data_dir,
+            "backups"
+        )
+
+        path = os.path.join(backup_dir, filename)
+
+        with open(path, "r", encoding="utf-8") as f:
+            history = json.load(f)
+
+        self.history = history
+
+        self.save_history()
+
+        self.load_history()
+        
+        
     # def load_theme(self):
         # path = get_theme_path()
 
